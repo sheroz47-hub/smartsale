@@ -8,7 +8,9 @@ $ErrorActionPreference = 'Stop'
 
 $JDK    = 'C:\Users\USER\tools\jdk-17.0.20+8'
 $GRADLE = 'C:\Users\USER\tools\gradle-8.11.1\bin\gradle.bat'
-$SDK    = 'C:\Users\USER\AppData\Local\Android\Sdk'
+# SDK лежит рядом с остальным инструментом, а не в AppData: каталог tools
+# точно виден и из среды сборки, и из обычного сеанса пользователя.
+$SDK    = 'C:\Users\USER\tools\android-sdk'
 
 if (-not (Test-Path $JDK))    { throw "нет JDK 17: $JDK" }
 if (-not (Test-Path $GRADLE)) { throw "нет Gradle: $GRADLE" }
