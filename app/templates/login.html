@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Вход — SmartSale{% endblock %}
+{% block content %}
+<div style="max-width:340px;margin:60px auto">
+  <h1 style="text-align:center">SmartSale</h1>
+  <form method="post" action="/login" class="карточка">
+    <input type="hidden" name="next" value="{{ next }}">
+    <p><input name="login" placeholder="логин" autofocus required style="width:100%"></p>
+    <p><input name="password" type="password" placeholder="пароль" required style="width:100%"></p>
+    <p><button class="главная" style="width:100%">Войти</button></p>
+  </form>
+  <p class="тусклый" style="text-align:center;font-size:13px">
+    Торговым агентам — мобильное приложение.
+  </p>
+</div>
+{% endblock %}

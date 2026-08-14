@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Сводка — SmartSale{% endblock %}
+{% block content %}
+<h1>Сводка</h1>
+
+<div class="плитки">
+  <div class="плитка">
+    <div class="значение">{{ новых }}</div>
+    <div class="подпись"><a href="/orders?status=new">новых заказов</a></div>
+  </div>
+  <div class="плитка">
+    <div class="значение">{{ к_отгрузке }}</div>
+    <div class="подпись"><a href="/orders?status=confirmed">ждут отгрузки</a></div>
+  </div>
+  <div class="плитка">
+    <div class="значение">{{ сумма_дня|деньги }}</div>
+    <div class="подпись">заказано сегодня, {{ currency }}</div>
+  </div>
+</div>
+
+{% if молчащие %}
+<div class="сообщение ошибка">
+  Больше суток нет связи с телефонами:
+  {% for агент in молчащие %}{{ агент.short_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+  Их заказы лежат в аппаратах и в офисе не видны.
+</div>
+{% endif %}
+
+{% if касса %}
+<div class="карточка">
+  <h2 style="margin-top:0">Наличные у агентов</h2>
+  <table>
+    <tr><th>Агент</th><th class="число">Не сдано, {{ currency }}</th><th></th></tr>
+    {% for агент, сумма in касса %}
+    <tr>
+      <td>{{ агент.full_name }}</td>
+      <td class="число">{{ сумма|деньги }}</td>
+      <td style="width:1%">
+        <form method="post" action="/agents/{{ агент.id }}/collect">
+          <button>Принять в кассу</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<h2>Последние заказы</h2>
+<table>
+  <tr>
+    <th>Номер</th><th>Дата</th><th>Клиент</th><th>Агент</th>
+    <th class="число">Сумма</th><th>Состояние</th>
+  </tr>
+  {% for заказ in последние %}
+  <tr>
+    <td><a href="/orders/{{ заказ.id }}">{{ заказ.number or '—' }}</a></td>
+    <td>{{ заказ.date.strftime('%d.%m') }}</td>
+    <td><a href="/customers/{{ заказ.customer_id }}">{{ заказ.customer.name }}</a></td>
+    <td class="тусклый">{{ заказ.agent.short_name if заказ.agent else '—' }}</td>
+    <td class="число">{{ заказ.amount|деньги }}</td>
+    <td><span class="метка {{ заказ.status }}">{{ статусы_заказа.get(заказ.status, заказ.status) }}</span></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="пусто">Заказов пока нет.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Дебиторка — SmartSale{% endblock %}
+{% block content %}
+<h1>Дебиторка</h1>
+
+<div class="плитки">
+  <div class="плитка">
+    <div class="значение">{{ итого|деньги }}</div>
+    <div class="подпись">всего долг, {{ currency }}</div>
+  </div>
+  <div class="плитка">
+    <div class="значение {% if итого_просрочено > 0 %}тревога{% endif %}">{{ итого_просрочено|деньги }}</div>
+    <div class="подпись">просрочено</div>
+  </div>
+</div>
+
+<p>
+  {% if only_overdue %}<a href="/debts">показать всех должников</a>
+  {% else %}<a href="/debts?only_overdue=1">только просроченные</a>{% endif %}
+</p>
+
+<table>
+  <tr>
+    <th>Клиент</th><th>Агент</th><th class="число">Долг</th>
+    <th class="число">Просрочено</th><th class="число">Лимит</th><th></th>
+  </tr>
+  {% for строка in строки %}
+  <tr>
+    <td><a href="/customers/{{ строка.клиент.id }}">{{ строка.клиент.name }}</a></td>
+    <td class="тусклый">
+      {{ строка.клиент.agent.short_name if строка.клиент.agent else '—' }}
+    </td>
+    <td class="число">{{ строка.долг|деньги }}</td>
+    <td class="число {% if строка.просрочено > 0 %}тревога{% endif %}">
+      {{ строка.просрочено|деньги }}
+    </td>
+    <td class="число тусклый">{{ строка.лимит|деньги if строка.лимит else '—' }}</td>
+    <td>
+      {% if строка.превышен %}<span class="метка cancelled">лимит превышен</span>{% endif %}
+      {% if строка.клиент.blocked %}<span class="метка cancelled">стоп</span>{% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="пусто">Долгов нет.</td></tr>
+  {% endfor %}
+</table>
+
+<p class="тусклый" style="font-size:13px">
+  Долг считается как отгружено минус оплачено. Просрочка оценивается зачётом
+  оплат по старшинству накладных — это оценка для решения об отгрузке, а не
+  бухгалтерское разнесение по документам.
+</p>
+{% endblock %}

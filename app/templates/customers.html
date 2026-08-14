@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Клиенты — SmartSale{% endblock %}
+{% block content %}
+<h1>Клиенты</h1>
+
+<form class="строкой карточка" method="get">
+  <input name="q" value="{{ q }}" placeholder="название, код или ИНН">
+  <select name="agent">
+    <option value="0">все агенты</option>
+    {% for а in агенты %}
+    <option value="{{ а.id }}" {% if agent == а.id %}selected{% endif %}>{{ а.full_name }}</option>
+    {% endfor %}
+  </select>
+  <button class="главная">Показать</button>
+  {% if q or agent %}<a href="/customers">сбросить</a>{% endif %}
+</form>
+
+<div class="карточка">
+  <form class="строкой" method="post" action="/customers">
+    <input name="name" placeholder="название новой точки" required style="min-width:280px">
+    <select name="agent_id">
+      <option value="">без агента</option>
+      {% for а in агенты %}<option value="{{ а.id }}">{{ а.full_name }}</option>{% endfor %}
+    </select>
+    <button>Добавить</button>
+  </form>
+</div>
+
+<table>
+  <tr>
+    <th>Код</th><th>Название</th><th>Агент</th><th>Телефон</th>
+    <th class="число">Долг</th><th class="число">Лимит</th><th></th>
+  </tr>
+  {% for клиент in клиенты %}
+  {% set долг = долги.get(клиент.id) %}
+  <tr>
+    <td class="тусклый">{{ клиент.code or '—' }}</td>
+    <td>
+      <a href="/customers/{{ клиент.id }}">{{ клиент.name }}</a>
+      {% if not клиент.active %}<span class="тусклый"> · отключён</span>{% endif %}
+    </td>
+    <td class="тусклый">{{ клиент.agent.short_name if клиент.agent else '—' }}</td>
+    <td class="тусклый">{{ клиент.phone or '—' }}</td>
+    <td class="число {% if клиент.credit_limit > 0 and долг > клиент.credit_limit %}тревога{% endif %}">
+      {{ долг|деньги }}
+    </td>
+    <td class="число тусклый">{{ клиент.credit_limit|деньги if клиент.credit_limit else '—' }}</td>
+    <td>{% if клиент.blocked %}<span class="метка cancelled">стоп</span>{% endif %}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="7" class="пусто">Клиентов пока нет.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

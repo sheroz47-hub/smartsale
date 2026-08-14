@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Заказы — SmartSale{% endblock %}
+{% block content %}
+<h1>Заказы</h1>
+
+<form class="строкой карточка" method="get">
+  <input name="q" value="{{ q }}" placeholder="номер или клиент">
+  <select name="status">
+    <option value="">все состояния</option>
+    {% for код, название in статусы_заказа.items() %}
+    <option value="{{ код }}" {% if status == код %}selected{% endif %}>{{ название }}</option>
+    {% endfor %}
+  </select>
+  <button class="главная">Показать</button>
+  {% if q or status %}<a href="/orders">сбросить</a>{% endif %}
+</form>
+
+<table>
+  <tr>
+    <th>Номер</th><th>Дата</th><th>Клиент</th><th>Агент</th><th>Склад</th>
+    <th class="число">Сумма</th><th>Оплата</th><th>Состояние</th><th>Получен</th>
+  </tr>
+  {% for заказ in заказы %}
+  <tr>
+    <td><a href="/orders/{{ заказ.id }}">{{ заказ.number or '—' }}</a></td>
+    <td>{{ заказ.date.strftime('%d.%m.%Y') }}</td>
+    <td><a href="/customers/{{ заказ.customer_id }}">{{ заказ.customer.name }}</a></td>
+    <td class="тусклый">{{ заказ.agent.short_name if заказ.agent else '—' }}</td>
+    <td class="тусклый">{{ заказ.warehouse.name if заказ.warehouse else '—' }}</td>
+    <td class="число">{{ заказ.amount|деньги }}</td>
+    <td class="тусклый">{{ 'наличные' if заказ.payment_type == 'cash' else 'перечисление' }}</td>
+    <td><span class="метка {{ заказ.status }}">{{ статусы_заказа.get(заказ.status, заказ.status) }}</span></td>
+    <td class="тусклый">{{ заказ.received_at.strftime('%d.%m %H:%M') }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="9" class="пусто">Ничего не найдено.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Каталог — SmartSale{% endblock %}
+{% block content %}
+<h1>Каталог</h1>
+
+<form class="строкой карточка" method="get">
+  <input name="q" value="{{ q }}" placeholder="название, артикул или штрихкод">
+  <select name="warehouse">
+    <option value="0">все склады</option>
+    {% for с in склады %}
+    <option value="{{ с.id }}" {% if warehouse == с.id %}selected{% endif %}>{{ с.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="главная">Показать</button>
+  {% if q or warehouse %}<a href="/catalog">сбросить</a>{% endif %}
+</form>
+
+<table>
+  <tr>
+    <th>Артикул</th><th>Товар</th><th>Ед.</th>
+    {% for в in виды_цен %}<th class="число">{{ в.name }}</th>{% endfor %}
+    <th class="число">Свободно</th>
+  </tr>
+  {% for товар in товары %}
+  <tr>
+    <td class="тусклый">{{ товар.code or '—' }}</td>
+    <td>
+      {{ товар.name }}
+      {% if not товар.active %}<span class="тусклый"> · снят</span>{% endif %}
+    </td>
+    <td class="тусклый">{{ товар.unit }}</td>
+    {% for в in виды_цен %}
+    <td class="число">{{ цены.get(товар.id, {}).get(в.id)|деньги }}</td>
+    {% endfor %}
+    <td class="число">{{ остатки.get(товар.id)|кол if товар.id in остатки else '—' }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="{{ 4 + виды_цен|length }}" class="пусто">
+    Каталог пуст. Товары, склады и виды цен пока заводятся напрямую в базе —
+    интерфейса ведения справочников ещё нет.
+  </td></tr>
+  {% endfor %}
+</table>
+
+{% if товары %}
+<div class="карточка" style="margin-top:16px">
+  <h2 style="margin-top:0">Изменить цену</h2>
+  <form class="строкой" method="post" action="/catalog/price">
+    <select name="product_id" required>
+      {% for товар in товары %}<option value="{{ товар.id }}">{{ товар.name }}</option>{% endfor %}
+    </select>
+    <select name="price_type_id" required>
+      {% for в in виды_цен %}<option value="{{ в.id }}">{{ в.name }}</option>{% endfor %}
+    </select>
+    <input name="price" placeholder="цена" required>
+    <button>Записать</button>
+  </form>
+
+  <h2>Установить остаток</h2>
+  <p class="тусклый" style="margin-top:0;font-size:13px">
+    Пока нет обмена с учётной системой, остаток заводится руками.
+    Разница пишется движением по складу.
+  </p>
+  <form class="строкой" method="post" action="/catalog/stock">
+    <select name="product_id" required>
+      {% for товар in товары %}<option value="{{ товар.id }}">{{ товар.name }}</option>{% endfor %}
+    </select>
+    <select name="warehouse_id" required>
+      {% for с in склады %}<option value="{{ с.id }}">{{ с.name }}</option>{% endfor %}
+    </select>
+    <input name="qty" placeholder="количество" required>
+    <button>Записать</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

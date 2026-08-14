@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.env
+.venv/
+venv/
+*.sqlite3
+media/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.iml
+*.jks
+*.keystore

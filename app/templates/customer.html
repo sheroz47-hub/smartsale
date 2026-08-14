@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}{{ клиент.name }} — SmartSale{% endblock %}
+{% block content %}
+<h1>{{ клиент.name }}</h1>
+
+<div class="плитки">
+  <div class="плитка">
+    <div class="значение {% if долг > 0 %}тревога{% endif %}">{{ долг|деньги }}</div>
+    <div class="подпись">долг, {{ currency }}</div>
+  </div>
+  <div class="плитка">
+    <div class="значение {% if просрочено > 0 %}тревога{% endif %}">{{ просрочено|деньги }}</div>
+    <div class="подпись">просрочено</div>
+  </div>
+  <div class="плитка">
+    <div class="значение">{{ клиент.credit_limit|деньги }}</div>
+    <div class="подпись">лимит · отсрочка {{ клиент.deferral_days }} дн.</div>
+  </div>
+</div>
+
+<div class="карточка">
+  <form method="post" action="/customers/{{ клиент.id }}">
+    <div class="поля">
+      <label>Название</label><input name="name" value="{{ клиент.name }}" required>
+      <label>Код</label><input name="code" value="{{ клиент.code }}">
+      <label>Юрлицо</label><input name="legal_name" value="{{ клиент.legal_name }}">
+      <label>ИНН</label><input name="inn" value="{{ клиент.inn }}">
+      <label>Телефон</label><input name="phone" value="{{ клиент.phone }}">
+      <label>Адрес</label><input name="address" value="{{ клиент.address }}">
+      <label>Агент</label>
+      <select name="agent_id">
+        <option value="">не закреплён</option>
+        {% for а in агенты %}
+        <option value="{{ а.id }}" {% if клиент.agent_id == а.id %}selected{% endif %}>{{ а.full_name }}</option>
+        {% endfor %}
+      </select>
+      <label>Вид цены</label>
+      <select name="price_type_id">
+        <option value="">по умолчанию</option>
+        {% for в in виды_цен %}
+        <option value="{{ в.id }}" {% if клиент.price_type_id == в.id %}selected{% endif %}>{{ в.name }}</option>
+        {% endfor %}
+      </select>
+      <label>Оплата</label>
+      <select name="payment_type">
+        <option value="cash" {% if клиент.payment_type == 'cash' %}selected{% endif %}>наличными</option>
+        <option value="transfer" {% if клиент.payment_type == 'transfer' %}selected{% endif %}>перечислением</option>
+      </select>
+      <label>Кредитный лимит</label><input name="credit_limit" value="{{ клиент.credit_limit }}">
+      <label>Отсрочка, дней</label><input name="deferral_days" value="{{ клиент.deferral_days }}">
+      <label>Запретить отгрузку</label>
+      <div>
+        <input type="checkbox" name="blocked" value="1" {% if клиент.blocked %}checked{% endif %}>
+        <input name="blocked_reason" value="{{ клиент.blocked_reason }}"
+               placeholder="причина" style="width:70%">
+      </div>
+    </div>
+    <p><button class="главная">Сохранить</button></p>
+  </form>
+</div>
+
+<div class="карточка">
+  <h2 style="margin-top:0">Принять оплату</h2>
+  <form class="строкой" method="post" action="/payments">
+    <input type="hidden" name="customer_id" value="{{ клиент.id }}">
+    <input name="amount" placeholder="сумма" required>
+    <select name="kind">
+      <option value="transfer">перечисление</option>
+      <option value="cash">наличные</option>
+      <option value="card">карта</option>
+    </select>
+    <input name="comment" placeholder="комментарий" style="min-width:220px">
+    <button>Записать</button>
+  </form>
+</div>
+
+<h2>Заказы</h2>
+<table>
+  <tr><th>Номер</th><th>Дата</th><th class="число">Сумма</th><th>Состояние</th></tr>
+  {% for заказ in заказы %}
+  <tr>
+    <td><a href="/orders/{{ заказ.id }}">{{ заказ.number or '—' }}</a></td>
+    <td>{{ заказ.date.strftime('%d.%m.%Y') }}</td>
+    <td class="число">{{ заказ.amount|деньги }}</td>
+    <td><span class="метка {{ заказ.status }}">{{ статусы_заказа.get(заказ.status, заказ.status) }}</span></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" class="пусто">Заказов не было.</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Оплаты</h2>
+<table>
+  <tr><th>Номер</th><th>Дата</th><th class="число">Сумма</th><th>Вид</th><th>Инкассация</th></tr>
+  {% for оплата in оплаты %}
+  <tr>
+    <td>{{ оплата.number }}</td>
+    <td>{{ оплата.date.strftime('%d.%m.%Y') }}</td>
+    <td class="число">{{ оплата.amount|деньги }}</td>
+    <td class="тусклый">{{ оплата.kind }}</td>
+    <td class="тусклый">
+      {% if оплата.kind != 'cash' %}—
+      {% elif оплата.collected %}сдано
+      {% else %}<span class="тревога">у агента</span>{% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="пусто">Оплат не было.</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Визиты</h2>
+<table>
+  <tr><th>Дата</th><th>Агент</th><th>Результат</th><th>Координаты</th><th>Комментарий</th></tr>
+  {% for визит in визиты %}
+  <tr>
+    <td>{{ визит.date.strftime('%d.%m.%Y') }}</td>
+    <td class="тусклый">{{ визит.agent.short_name }}</td>
+    <td>{{ визит.result or '—' }}</td>
+    <td class="тусклый">
+      {% if визит.lat %}{{ '%.5f'|format(визит.lat) }}, {{ '%.5f'|format(визит.lon) }}{% else %}—{% endif %}
+    </td>
+    <td class="тусклый">{{ визит.comment }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="пусто">Визитов не отмечено.</td></tr>
+  {% endfor %}
+</table>
+
+<p><a href="/customers">← ко всем клиентам</a></p>
+{% endblock %}

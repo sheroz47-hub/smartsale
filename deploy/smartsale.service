@@ -1,0 +1,27 @@
+[Unit]
+Description=SmartSale — торговое приложение
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=smartsale
+Group=smartsale
+WorkingDirectory=/srv/smartsale/app_src
+EnvironmentFile=/srv/smartsale/.env
+ExecStart=/srv/smartsale/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010
+Restart=always
+RestartSec=5
+
+# Приложение смотрит наружу, поэтому лишних прав у него быть не должно.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/smartsale
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

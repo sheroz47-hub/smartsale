@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Отгрузка {{ отгрузка.number }} — SmartSale{% endblock %}
+{% block content %}
+<h1>Отгрузка {{ отгрузка.number }}</h1>
+
+<div class="карточка">
+  <div class="поля">
+    <label>Клиент</label>
+    <div><a href="/customers/{{ отгрузка.customer_id }}">{{ отгрузка.customer.name }}</a></div>
+    <label>Дата</label><div>{{ отгрузка.date.strftime('%d.%m.%Y') }}</div>
+    <label>Срок оплаты</label>
+    <div>{{ отгрузка.due_date.strftime('%d.%m.%Y') if отгрузка.due_date else '—' }}</div>
+    <label>Заказ</label>
+    <div>
+      {% if отгрузка.order %}<a href="/orders/{{ отгрузка.order_id }}">{{ отгрузка.order.number }}</a>
+      {% else %}—{% endif %}
+    </div>
+  </div>
+</div>
+
+<table>
+  <tr><th>Товар</th><th class="число">Количество</th><th class="число">Цена</th><th class="число">Сумма</th></tr>
+  {% for строка in отгрузка.lines %}
+  <tr>
+    <td>{{ строка.product.name }}</td>
+    <td class="число">{{ строка.qty|кол }} {{ строка.product.unit }}</td>
+    <td class="число">{{ строка.price|деньги }}</td>
+    <td class="число">{{ строка.amount|деньги }}</td>
+  </tr>
+  {% endfor %}
+  <tr><th colspan="3">Итого</th><th class="число">{{ отгрузка.amount|деньги }}</th></tr>
+</table>
+
+<p><a href="/shipments">← ко всем отгрузкам</a></p>
+{% endblock %}

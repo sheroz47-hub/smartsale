@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Отгрузки — SmartSale{% endblock %}
+{% block content %}
+<h1>Отгрузки</h1>
+
+<table>
+  <tr>
+    <th>Номер</th><th>Дата</th><th>Клиент</th><th>Заказ</th>
+    <th class="число">Сумма</th><th>Срок оплаты</th><th>Состояние</th>
+  </tr>
+  {% for отгрузка in отгрузки %}
+  <tr>
+    <td><a href="/shipments/{{ отгрузка.id }}">{{ отгрузка.number }}</a></td>
+    <td>{{ отгрузка.date.strftime('%d.%m.%Y') }}</td>
+    <td><a href="/customers/{{ отгрузка.customer_id }}">{{ отгрузка.customer.name }}</a></td>
+    <td>
+      {% if отгрузка.order %}<a href="/orders/{{ отгрузка.order_id }}">{{ отгрузка.order.number }}</a>
+      {% else %}—{% endif %}
+    </td>
+    <td class="число">{{ отгрузка.amount|деньги }}</td>
+    <td>{{ отгрузка.due_date.strftime('%d.%m.%Y') if отгрузка.due_date else '—' }}</td>
+    <td><span class="метка shipped">{{ отгрузка.status }}</span></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="7" class="пусто">Отгрузок пока нет.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Заказ {{ заказ.number }} — SmartSale{% endblock %}
+{% block content %}
+<h1>
+  Заказ {{ заказ.number or '(без номера)' }}
+  <span class="метка {{ заказ.status }}">{{ статусы_заказа.get(заказ.status, заказ.status) }}</span>
+</h1>
+
+<div class="карточка">
+  <div class="поля">
+    <label>Клиент</label>
+    <div>
+      <a href="/customers/{{ заказ.customer_id }}">{{ заказ.customer.name }}</a>
+      {% if заказ.customer.blocked %}<span class="тревога">— отгрузка запрещена</span>{% endif %}
+    </div>
+    <label>Долг клиента</label>
+    <div class="{% if долг > 0 %}тревога{% endif %}">{{ долг|деньги }} {{ currency }}</div>
+    <label>Дата</label><div>{{ заказ.date.strftime('%d.%m.%Y') }}</div>
+    <label>Доставка</label>
+    <div>{{ заказ.delivery_date.strftime('%d.%m.%Y') if заказ.delivery_date else '—' }}</div>
+    <label>Агент</label><div>{{ заказ.agent.full_name if заказ.agent else '—' }}</div>
+    <label>Склад</label><div>{{ заказ.warehouse.name if заказ.warehouse else 'не указан' }}</div>
+    <label>Оплата</label>
+    <div>{{ 'наличными' if заказ.payment_type == 'cash' else 'перечислением' }}</div>
+    <label>Источник</label>
+    <div class="тусклый">
+      {{ 'телефон агента' if заказ.source == 'mobile' else 'кабинет' }},
+      получен {{ заказ.received_at.strftime('%d.%m.%Y %H:%M') }}
+    </div>
+    {% if заказ.comment %}<label>Комментарий</label><div>{{ заказ.comment }}</div>{% endif %}
+    {% if заказ.cancelled_reason %}
+    <label>Причина отмены</label><div class="тревога">{{ заказ.cancelled_reason }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<table>
+  <tr>
+    <th>Товар</th><th class="число">Количество</th><th class="число">Цена</th>
+    <th class="число">Скидка</th><th class="число">Сумма</th><th class="число">Свободно</th>
+  </tr>
+  {% for строка in заказ.lines %}
+  {% set свободно = остатки.get(строка.product_id) %}
+  <tr>
+    <td>{{ строка.product.name }}<span class="тусклый"> · {{ строка.product.code }}</span></td>
+    <td class="число">{{ строка.qty|кол }} {{ строка.product.unit }}</td>
+    <td class="число">{{ строка.price|деньги }}</td>
+    <td class="число">{{ строка.discount_percent|кол }}%</td>
+    <td class="число">{{ строка.amount|деньги }}</td>
+    <td class="число {% if свободно is not none and свободно < строка.qty %}тревога{% endif %}">
+      {{ свободно|кол if свободно is not none else '—' }}
+    </td>
+  </tr>
+  {% endfor %}
+  <tr>
+    <th colspan="4">Итого{% if заказ.vat_amount %}, в том числе НДС {{ заказ.vat_amount|деньги }}{% endif %}</th>
+    <th class="число">{{ заказ.amount|деньги }}</th><th></th>
+  </tr>
+</table>
+
+<div class="карточка" style="margin-top:16px">
+  {% if заказ.status == 'new' %}
+  <form method="post" action="/orders/{{ заказ.id }}/confirm" style="display:inline">
+    <button class="главная">Подтвердить и зарезервировать</button>
+  </form>
+  {% elif заказ.status in ('confirmed', 'picking') %}
+  <form method="post" action="/orders/{{ заказ.id }}/ship" style="display:inline">
+    <button class="главная">Отгрузить</button>
+  </form>
+  {% endif %}
+
+  {% if заказ.status not in ('shipped', 'cancelled') %}
+  <form method="post" action="/orders/{{ заказ.id }}/cancel" class="строкой" style="margin-top:10px">
+    <input name="reason" placeholder="причина отмены" style="min-width:260px">
+    <button class="опасная">Отменить заказ</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if отгрузки %}
+<h2>Отгрузки</h2>
+<table>
+  <tr><th>Номер</th><th>Дата</th><th class="число">Сумма</th><th>Срок оплаты</th></tr>
+  {% for отгрузка in отгрузки %}
+  <tr>
+    <td><a href="/shipments/{{ отгрузка.id }}">{{ отгрузка.number }}</a></td>
+    <td>{{ отгрузка.date.strftime('%d.%m.%Y') }}</td>
+    <td class="число">{{ отгрузка.amount|деньги }}</td>
+    <td>{{ отгрузка.due_date.strftime('%d.%m.%Y') if отгрузка.due_date else '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<p><a href="/orders">← ко всем заказам</a></p>
+{% endblock %}

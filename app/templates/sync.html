@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Обмены — SmartSale{% endblock %}
+{% block content %}
+<h1>Обмены с телефонами</h1>
+
+<p class="тусклый" style="font-size:13px">
+  Первый вопрос при жалобе «заказ не дошёл» — доходил ли телефон до сервера.
+  Здесь на него есть ответ.
+</p>
+
+<h2>Устройства</h2>
+<table>
+  <tr>
+    <th>Агент</th><th>Устройство</th><th>Версия</th>
+    <th>Последняя связь</th><th>Последний забор справочников</th><th>Состояние</th>
+  </tr>
+  {% for устройство in устройства %}
+  <tr>
+    <td>{{ устройство.user.full_name }}</td>
+    <td class="тусклый">{{ устройство.name or устройство.device_id[:12] }}</td>
+    <td class="тусклый">{{ устройство.app_version or '—' }}</td>
+    <td>{{ устройство.last_seen.strftime('%d.%m.%Y %H:%M') if устройство.last_seen else 'не выходило' }}</td>
+    <td class="тусклый">{{ устройство.last_pull.strftime('%d.%m.%Y %H:%M') if устройство.last_pull else '—' }}</td>
+    <td>
+      {% if устройство.active %}<span class="метка confirmed">включено</span>
+      {% else %}<span class="метка cancelled">отключено</span>{% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="пусто">Ни одно устройство ещё не подключалось.</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Журнал</h2>
+<table>
+  <tr><th>Время</th><th>Агент</th><th>Направление</th><th>Записей</th><th>Время работы</th><th>Ошибка</th></tr>
+  {% for запись in записи %}
+  <tr>
+    <td>{{ запись.at.strftime('%d.%m.%Y %H:%M:%S') }}</td>
+    <td class="тусклый">{{ имена.get(запись.user_id, '—') }}</td>
+    <td>{{ 'забор' if запись.direction == 'pull' else 'отправка' }}</td>
+    <td class="тусклый" style="font-size:12px">{{ запись.counts }}</td>
+    <td class="число тусклый">{{ запись.duration_ms }} мс</td>
+    <td class="тревога">{{ запись.error }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="пусто">Обменов ещё не было.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

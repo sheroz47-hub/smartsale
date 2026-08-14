@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}SmartSale{% endblock %}</title>
+<style>
+:root {
+  --фон: #f5f6f8;
+  --карточка: #fff;
+  --рамка: #dfe3e8;
+  --текст: #1c2530;
+  --тусклый: #6b7684;
+  --акцент: #1f6feb;
+  --тревога: #c0392b;
+  --успех: #1e7e4a;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--фон); color: var(--текст);
+  font: 15px/1.45 -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+a { color: var(--акцент); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+header {
+  background: var(--карточка); border-bottom: 1px solid var(--рамка);
+  padding: 0 20px; display: flex; align-items: center; gap: 22px;
+  flex-wrap: wrap; position: sticky; top: 0; z-index: 5;
+}
+header .знак { font-weight: 700; font-size: 17px; padding: 14px 0; }
+header nav { display: flex; gap: 18px; flex-wrap: wrap; }
+header nav a { padding: 14px 0; color: var(--текст); }
+header nav a.текущий { box-shadow: inset 0 -2px 0 var(--акцент); }
+header .справа { margin-left: auto; color: var(--тусклый); font-size: 13px; }
+
+main { max-width: 1400px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 21px; margin: 0 0 16px; }
+h2 { font-size: 16px; margin: 24px 0 10px; }
+
+.карточка {
+  background: var(--карточка); border: 1px solid var(--рамка);
+  border-radius: 8px; padding: 16px; margin-bottom: 16px;
+}
+
+table { width: 100%; border-collapse: collapse; background: var(--карточка); }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--рамка); }
+th { font-size: 12px; text-transform: uppercase; color: var(--тусклый); font-weight: 600; }
+td.число, th.число { text-align: right; font-variant-numeric: tabular-nums; }
+tbody tr:hover { background: #fafbfc; }
+
+.плитки { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.плитка {
+  background: var(--карточка); border: 1px solid var(--рамка);
+  border-radius: 8px; padding: 14px 18px; min-width: 150px;
+}
+.плитка .значение { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.плитка .подпись { color: var(--тусклый); font-size: 12px; margin-top: 2px; }
+
+.метка {
+  display: inline-block; padding: 1px 8px; border-radius: 10px;
+  font-size: 12px; background: #eceff3; color: var(--тусклый);
+}
+.метка.new { background: #e7f0ff; color: #1f4fa8; }
+.метка.confirmed { background: #e6f4ea; color: var(--успех); }
+.метка.picking { background: #fff4e0; color: #8a5a00; }
+.метка.shipped { background: #e8eaed; color: #3c4043; }
+.метка.cancelled { background: #fdecea; color: var(--тревога); }
+
+input, select, textarea, button {
+  font: inherit; padding: 7px 10px; border: 1px solid var(--рамка);
+  border-radius: 6px; background: #fff; color: inherit;
+}
+button { cursor: pointer; }
+button.главная { background: var(--акцент); color: #fff; border-color: var(--акцент); }
+button.опасная { background: #fff; color: var(--тревога); border-color: #f0c2bc; }
+form.строкой { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.поля { display: grid; grid-template-columns: 190px 1fr; gap: 10px 14px; align-items: center; }
+.поля label { color: var(--тусклый); font-size: 13px; }
+
+.сообщение { padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; }
+.сообщение.ошибка { background: #fdecea; color: var(--тревога); }
+.сообщение.успех { background: #e6f4ea; color: var(--успех); }
+
+.тусклый { color: var(--тусклый); }
+.тревога { color: var(--тревога); font-weight: 600; }
+.пусто { padding: 30px; text-align: center; color: var(--тусклый); }
+</style>
+</head>
+<body>
+{% if user is defined and user %}
+{# Текущий раздел определяется по адресу, а не передаётся из обработчика:
+   иначе каждый новый обработчик обязан помнить про эту переменную, и
+   рано или поздно кто-то забудет. #}
+{% set путь = request.url.path %}
+<header>
+  <span class="знак">SmartSale</span>
+  <nav>
+    {% for адрес, название in [
+        ('/', 'Сводка'), ('/orders', 'Заказы'), ('/shipments', 'Отгрузки'),
+        ('/customers', 'Клиенты'), ('/catalog', 'Каталог'),
+        ('/debts', 'Дебиторка'), ('/agents', 'Агенты'), ('/sync', 'Обмены')] %}
+      <a href="{{ адрес }}" {% if путь == адрес or (адрес != '/' and путь.startswith(адрес)) %}class="текущий"{% endif %}>{{ название }}</a>
+    {% endfor %}
+  </nav>
+  <span class="справа">{{ user.short_name }} · <a href="/logout">выход</a></span>
+</header>
+{% endif %}
+<main>
+{% if error %}<div class="сообщение ошибка">{{ error }}</div>{% endif %}
+{% if ok %}<div class="сообщение успех">{{ ok }}</div>{% endif %}
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

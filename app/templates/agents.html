@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Агенты — SmartSale{% endblock %}
+{% block content %}
+<h1>Торговые агенты</h1>
+
+{% if user.is_admin %}
+<div class="карточка">
+  <form class="строкой" method="post" action="/agents">
+    <input name="full_name" placeholder="ФИО" required style="min-width:240px">
+    <input name="login" placeholder="логин" required>
+    <input name="phone" placeholder="телефон">
+    <button class="главная">Завести агента</button>
+  </form>
+  <p class="тусклый" style="font-size:13px;margin-bottom:0">
+    Пароль выдаётся сразу после создания и показывается один раз —
+    записать и передать агенту.
+  </p>
+</div>
+{% endif %}
+
+{% for сведение in сведения %}
+{% set агент = сведение.агент %}
+<div class="карточка">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+    <strong style="font-size:16px">{{ агент.full_name }}</strong>
+    <span class="тусклый">{{ агент.login }}{% if агент.phone %} · {{ агент.phone }}{% endif %}</span>
+    {% if not агент.active %}<span class="метка cancelled">отключён</span>{% endif %}
+    <span style="margin-left:auto">
+      {% if user.is_admin %}
+      <form method="post" action="/agents/{{ агент.id }}/reset" style="display:inline">
+        <button>Сбросить пароль</button>
+      </form>
+      {% endif %}
+      {% if сведение.наличные > 0 %}
+      <form method="post" action="/agents/{{ агент.id }}/collect" style="display:inline">
+        <button class="главная">Принять {{ сведение.наличные|деньги }}</button>
+      </form>
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="плитки" style="margin:12px 0 0">
+    <div class="плитка">
+      <div class="значение">{{ сведение.клиентов }}</div>
+      <div class="подпись">клиентов</div>
+    </div>
+    <div class="плитка">
+      <div class="значение">{{ сведение.заказов_месяц }}</div>
+      <div class="подпись">заказов с начала месяца</div>
+    </div>
+    <div class="плитка">
+      <div class="значение {% if сведение.наличные > 0 %}тревога{% endif %}">
+        {{ сведение.наличные|деньги }}
+      </div>
+      <div class="подпись">наличных не сдано</div>
+    </div>
+  </div>
+
+  {% if сведение.устройства %}
+  <table style="margin-top:12px">
+    <tr>
+      <th>Устройство</th><th>Версия</th><th>Последняя связь</th>
+      <th>Последний забор</th><th></th>
+    </tr>
+    {% for устройство in сведение.устройства %}
+    <tr>
+      <td>
+        {{ устройство.name or устройство.device_id[:12] }}
+        {% if not устройство.active %}<span class="метка cancelled">отключено</span>{% endif %}
+      </td>
+      <td class="тусклый">{{ устройство.app_version or '—' }}</td>
+      <td class="тусклый">
+        {{ устройство.last_seen.strftime('%d.%m %H:%M') if устройство.last_seen else 'не выходило' }}
+      </td>
+      <td class="тусклый">
+        {{ устройство.last_pull.strftime('%d.%m %H:%M') if устройство.last_pull else '—' }}
+      </td>
+      <td style="width:1%">
+        {% if user.is_admin and устройство.active %}
+        <form method="post" action="/devices/{{ устройство.id }}/off">
+          <button class="опасная">Отключить</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="тусклый" style="margin-bottom:0">Приложение ещё не установлено.</p>
+  {% endif %}
+</div>
+{% else %}
+<div class="карточка пусто">Агентов пока нет.</div>
+{% endfor %}
+{% endblock %}
