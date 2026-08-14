@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -74,7 +74,7 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
                 ProductRow(товар, vm.qtyOf(товар.uuid)) { количество ->
                     vm.putInCart(товар, количество)
                 }
-                Divider()
+                HorizontalDivider()
             }
         }
 

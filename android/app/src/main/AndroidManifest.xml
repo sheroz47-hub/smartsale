@@ -13,12 +13,11 @@
         android:allowBackup="false"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SmartSale"
-        android:usesCleartextTraffic="true">
+        android:theme="@style/Theme.SmartSale">
 
-        <!-- usesCleartextTraffic оставлен намеренно: пока у сервера нет
-             домена и сертификата, обмен идёт по http. Как только появится
-             HTTPS — убрать, иначе пароль агента так и будет ходить открытым. -->
+        <!-- Открытый HTTP запрещён: сервер работает по HTTPS с сертификатом
+             Let's Encrypt. Разрешение открытого трафика означало бы, что
+             пароль агента можно перехватить в любой открытой сети. -->
 
         <activity
             android:name=".MainActivity"

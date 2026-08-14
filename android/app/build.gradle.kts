@@ -43,6 +43,12 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
 
+    // Room выгружает схему в JSON при каждой сборке. Она нужна для миграций:
+    // без снимка прежней схемы обновление приложения либо потребует стирать
+    // базу, либо будет писаться вслепую. В базе лежат неотправленные заказы,
+    // терять их нельзя.
+    ksp { arg("room.schemaLocation", "$projectDir/schemas") }
+
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
