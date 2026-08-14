@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,6 +18,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -98,32 +100,67 @@ fun LoginScreen(vm: AgentViewModel) {
     }
 }
 
+private val ДНИ = listOf("пн", "вт", "ср", "чт", "пт", "сб", "вс")
+private val ДНИ_ПОЛНЫЕ = listOf(
+    "понедельник", "вторник", "среду", "четверг", "пятницу", "субботу", "воскресенье")
+
 @Composable
 fun RouteScreen(vm: AgentViewModel, onCustomer: (String) -> Unit) {
-    val маршрут by vm.todayRoute.collectAsState()
+    val маршрут by vm.routeCustomers.collectAsState()
     val все by vm.customers.collectAsState()
+    val день by vm.weekday.collectAsState()
+    val дниСМаршрутом by vm.routeDays.collectAsState()
     var показатьВсех by remember { mutableStateOf(false) }
     val список = if (показатьВсех) все else маршрут
 
     Column(Modifier.fillMaxSize()) {
+        // Выбранная вкладка выделяется заливкой, а не гасится. Раньше она
+        // была disabled: серая нажатая кнопка читается как «недоступно», и
+        // маршрут выглядел сломанным, хотя список под ней был правильный.
         Row(
-            Modifier.fillMaxWidth().padding(12.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OutlinedButton(onClick = { показатьВсех = false }, enabled = показатьВсех) {
-                Text("Маршрут (${маршрут.size})")
-            }
-            OutlinedButton(onClick = { показатьВсех = true }, enabled = !показатьВсех) {
-                Text("Все клиенты (${все.size})")
+            Вкладка("Маршрут (${маршрут.size})", выбрана = !показатьВсех,
+                onClick = { показатьВсех = false }, modifier = Modifier.weight(1f))
+            Вкладка("Все клиенты (${все.size})", выбрана = показатьВсех,
+                onClick = { показатьВсех = true }, modifier = Modifier.weight(1f))
+        }
+
+        if (!показатьВсех) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                ДНИ.forEachIndexed { индекс, имя ->
+                    val номер = индекс + 1
+                    ДеньНедели(
+                        имя = имя,
+                        выбран = день == номер,
+                        естьМаршрут = номер in дниСМаршрутом,
+                        onClick = { vm.setWeekday(номер) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
 
         if (список.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    if (показатьВсех) "Клиентов нет. Обменяйтесь с сервером."
-                    else "На сегодня маршрут не назначен.",
+                    when {
+                        показатьВсех ->
+                            "Клиентов нет. Откройте «Обмен» и обменяйтесь с сервером."
+                        дниСМаршрутом.isEmpty() ->
+                            "Маршруты не назначены. Обменяйтесь с сервером, " +
+                                "а если пусто и после обмена — скажите в офисе."
+                        else ->
+                            "На ${ДНИ_ПОЛНЫЕ[день - 1]} маршрута нет.\n" +
+                                "Есть на: " + дниСМаршрутом.joinToString(", ") { ДНИ[it - 1] }
+                    },
                     color = MaterialTheme.colorScheme.outline,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(32.dp),
                 )
             }
         } else {
@@ -133,6 +170,44 @@ fun RouteScreen(vm: AgentViewModel, onCustomer: (String) -> Unit) {
                     HorizontalDivider()
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun Вкладка(текст: String, выбрана: Boolean, onClick: () -> Unit,
+                    modifier: Modifier = Modifier) {
+    if (выбрана) {
+        Button(onClick = onClick, modifier = modifier) { Text(текст) }
+    } else {
+        OutlinedButton(onClick = onClick, modifier = modifier) { Text(текст) }
+    }
+}
+
+@Composable
+private fun ДеньНедели(имя: String, выбран: Boolean, естьМаршрут: Boolean,
+                       onClick: () -> Unit, modifier: Modifier = Modifier) {
+    // День без маршрута показан бледным, но нажимается: агент должен видеть,
+    // что там пусто, а не гадать, почему кнопка не работает.
+    val цветФона = when {
+        выбран -> MaterialTheme.colorScheme.primary
+        естьМаршрут -> MaterialTheme.colorScheme.surfaceVariant
+        else -> MaterialTheme.colorScheme.surface
+    }
+    val цветТекста = when {
+        выбран -> MaterialTheme.colorScheme.onPrimary
+        естьМаршрут -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.outline
+    }
+    Surface(
+        onClick = onClick,
+        color = цветФона,
+        shape = MaterialTheme.shapes.small,
+        modifier = modifier.height(38.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(имя, color = цветТекста, fontSize = 13.sp,
+                fontWeight = if (выбран) FontWeight.Bold else FontWeight.Normal)
         }
     }
 }

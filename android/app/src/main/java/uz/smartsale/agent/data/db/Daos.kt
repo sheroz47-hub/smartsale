@@ -102,6 +102,11 @@ interface CustomerDao {
         """
     )
     fun route(weekday: Int): Flow<List<CustomerEntity>>
+
+    /** Дни, на которые вообще заведён маршрут. Нужно, чтобы отличить
+     *  «сегодня выходной» от «маршруты не настроены». */
+    @Query("SELECT DISTINCT weekday FROM route_stops ORDER BY weekday")
+    fun routeDays(): Flow<List<Int>>
 }
 
 @Dao

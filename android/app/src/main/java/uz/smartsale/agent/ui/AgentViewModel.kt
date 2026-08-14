@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import uz.smartsale.agent.data.Repository
@@ -48,8 +49,27 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
     val customers = db.customers().all()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    /** Маршрут на сегодня. Calendar отдаёт воскресенье первым, приводим к ISO. */
-    val todayRoute = db.customers().route(isoWeekday())
+    /** Выбранный день маршрута, по умолчанию сегодняшний.
+     *
+     *  День выбирается, а не жёстко берётся из часов: агент планирует
+     *  завтрашний объезд с вечера, а пропущенную точку заезжает посмотреть
+     *  на следующий день. Экран, показывающий только «сегодня», для этого
+     *  бесполезен.
+     */
+    private val _weekday = MutableStateFlow(isoWeekday())
+    val weekday = _weekday.asStateFlow()
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val routeCustomers = _weekday
+        .flatMapLatest { день -> db.customers().route(день) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    fun setWeekday(день: Int) { _weekday.value = день }
+
+    /** Есть ли маршрут хоть на какой-нибудь день: пустой маршрут на сегодня
+     *  и вовсе не заведённый маршрут — разные беды, и говорить о них надо
+     *  разными словами. */
+    val routeDays = db.customers().routeDays()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val recentOrders = db.documents().recentOrders()
