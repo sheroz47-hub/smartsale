@@ -80,11 +80,19 @@ def recalc_order(order: Order) -> None:
     ндс = Decimal(0)
 
     for строка in order.lines:
+        # Значения по умолчанию из модели проставляются при записи в базу, а
+        # пересчёт идёт до неё: у строки, только что собранной в памяти,
+        # незаполненные поля равны None, а не нулю.
+        строка.qty = строка.qty or Decimal(0)
+        строка.price = строка.price or Decimal(0)
+        строка.discount_percent = строка.discount_percent or Decimal(0)
+        строка.vat_rate = строка.vat_rate or Decimal(0)
+
         без_скидки = округлить(строка.qty * строка.price)
         сумма_скидки = округлить(без_скидки * строка.discount_percent / 100)
         строка.amount = округлить(без_скидки - сумма_скидки)
 
-        ставка = строка.vat_rate or Decimal(0)
+        ставка = строка.vat_rate
         строка.vat_amount = округлить(строка.amount * ставка / (100 + ставка)) \
             if ставка else Decimal(0)
 
