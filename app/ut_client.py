@@ -112,3 +112,41 @@ def получить_страницами(путь: str) -> list[dict]:
 def получить_список(путь: str) -> list[dict]:
     """Список целиком, без страниц (/prices, /stocks, /promotions)."""
     return получить(путь).get("items", [])
+
+
+def отправить(путь: str, тело: dict, параметры: dict | None = None) -> dict:
+    """POST к методу сервиса (/orders, /payments). Тело — JSON-объект,
+    ответ — разобранный JSON. Ошибки — как в получить()."""
+    _проверить_настройки()
+
+    адрес = UT_BASE_URL.rstrip("/") + "/" + путь.lstrip("/")
+    if параметры:
+        адрес += "?" + urllib.parse.urlencode(параметры)
+
+    данные = json.dumps(тело, ensure_ascii=False).encode("utf-8")
+    заголовки = dict(_заголовки())
+    заголовки["Content-Type"] = "application/json; charset=utf-8"
+    запрос = urllib.request.Request(адрес, data=данные, headers=заголовки, method="POST")
+
+    try:
+        with urllib.request.urlopen(запрос, timeout=UT_TIMEOUT) as ответ:
+            текст = ответ.read().decode("utf-8")
+    except urllib.error.HTTPError as ошибка:
+        подробность = ""
+        try:
+            подробность = ошибка.read().decode("utf-8", "replace")[:500]
+        except Exception:
+            pass
+        raise ОшибкаУТ(f"{путь}: HTTP {ошибка.code} {подробность}") from ошибка
+    except urllib.error.URLError as ошибка:
+        raise ОшибкаУТ(f"{путь}: нет связи с УТ ({ошибка.reason})") from ошибка
+
+    try:
+        разобранное = json.loads(текст)
+    except json.JSONDecodeError as ошибка:
+        raise ОшибкаУТ(f"{путь}: ответ не JSON") from ошибка
+
+    if not isinstance(разобранное, dict):
+        raise ОшибкаУТ(f"{путь}: ожидался объект JSON")
+
+    return разобранное

@@ -665,6 +665,30 @@ class Counter(Base):
     value: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class UtExport(Base):
+    """Отметка об отправке документа SmartSale в УТ (обратный канал).
+
+    Идемпотентность: по client_uid документ не шлём в УТ дважды. Есть строка —
+    документ уже обработан: `ut_number` заполнен при приёме, `error` — при
+    отказе (деловая причина, повтор не поможет). Нет строки — не отправляли
+    (или был сбой связи), отправим на следующем прогоне. client_uid общий с
+    телефоном и с журналом приёма УТ — одна сквозная нить идемпотентности.
+    """
+
+    __tablename__ = "ut_exports"
+
+    # Ключ составной: одна отметка на (документ, вид). client_uid у заказа и
+    # оплаты — независимые пространства uuid, но вид в ключе снимает и
+    # теоретическое пересечение, и делает схему согласованной с отбором по виду.
+    client_uid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    # order | payment
+    kind: Mapped[str] = mapped_column(String(16), primary_key=True)
+    ut_number: Mapped[str] = mapped_column(String(64), default="")
+    error: Mapped[str] = mapped_column(Text, default="")
+    at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+
 # --- акции -------------------------------------------------------------------
 
 class Promotion(Base, Timestamped):
