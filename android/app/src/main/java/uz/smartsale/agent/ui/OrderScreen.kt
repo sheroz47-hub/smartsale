@@ -44,6 +44,7 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
     var примечание by remember { mutableStateOf("") }
     val клиент by vm.currentCustomer.collectAsState()
     val корзина by vm.cart.collectAsState()
+    val цены by vm.pricedCart.collectAsState()
 
     val поток: Flow<List<CatalogRow>> = remember(поиск, клиент?.uuid) { vm.catalog(поиск) }
     val товары by поток.collectAsState(initial = emptyList())
@@ -82,8 +83,22 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
             Column(Modifier.fillMaxWidth().padding(12.dp)) {
                 Row(Modifier.fillMaxWidth()) {
                     Text("Позиций: ${корзина.size}", modifier = Modifier.weight(1f))
-                    Text(деньги(vm.cartTotal.toPlainString()),
+                    Text(деньги(цены.total.toPlainString()),
                         fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                }
+                // Скидка по акциям — видна агенту сразу, как набрал позиции.
+                if (цены.discount > BigDecimal.ZERO) {
+                    Row(Modifier.fillMaxWidth()) {
+                        Text("Скидка по акциям", modifier = Modifier.weight(1f),
+                            fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                        Text("−${деньги(цены.discount.toPlainString())}",
+                            fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                // Бонусные товары от акций «купи N — получи M».
+                цены.bonuses.forEach { бонус ->
+                    Text("Бонус: ${бонус.name} × ${бонус.qty.toPlainString()}",
+                        fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
                 }
                 OutlinedTextField(
                     value = примечание, onValueChange = { примечание = it },

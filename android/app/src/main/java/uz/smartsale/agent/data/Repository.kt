@@ -341,6 +341,45 @@ class Repository(private val context: Context) {
         )
     }
 
+    // --- акции ----------------------------------------------------------------
+
+    /** Действующие акции в форме для движка: строки → BigDecimal (безопасно,
+     *  пустая/битая строка → 0), состав разбит на товары и группы. */
+    suspend fun promotionsForEngine(): List<PromotionEngine.Promotion> =
+        withContext(Dispatchers.IO) {
+            val dao = db.promotions()
+            val товары = dao.allProducts().groupBy { it.promotionUuid }
+            val пороги = dao.allThresholds().groupBy { it.promotionUuid }
+            dao.activePromotions().map { акция ->
+                val состав = товары[акция.uuid].orEmpty()
+                PromotionEngine.Promotion(
+                    uuid = акция.uuid, mechanic = акция.mechanic,
+                    dateFrom = акция.dateFrom, dateTo = акция.dateTo,
+                    segmentUuid = акция.segmentUuid, priority = акция.priority,
+                    percent = дробь(акция.percent), buyQty = дробь(акция.buyQty),
+                    bonusProductUuid = акция.bonusProductUuid,
+                    bonusQty = дробь(акция.bonusQty),
+                    productUuids = состав.filterNot { it.isGroup }
+                        .map { it.productUuid }.toSet(),
+                    groupUuids = состав.filter { it.isGroup }
+                        .map { it.productUuid }.toSet(),
+                    thresholds = пороги[акция.uuid].orEmpty().map {
+                        PromotionEngine.Threshold(
+                            дробь(it.minQty), дробь(it.minSum), дробь(it.percent))
+                    },
+                )
+            }
+        }
+
+    /** Наименование товара (для показа бонусной строки агенту). */
+    suspend fun productName(uuid: String): String = withContext(Dispatchers.IO) {
+        db.catalog().product(uuid)?.name ?: uuid
+    }
+
+    /** Цена бонусного товара по виду цены клиента; нет цены → null. */
+    suspend fun priceOf(uuid: String, priceTypeUuid: String): String? =
+        withContext(Dispatchers.IO) { db.catalog().priceOf(uuid, priceTypeUuid) }
+
     fun database() = db
 
     companion object {
@@ -351,6 +390,11 @@ class Repository(private val context: Context) {
         fun timestamp(): String = МОМЕНТ.format(Date())
     }
 }
+
+/** Число из строки сервера. Пустая/битая → 0: движку нельзя падать на
+ *  кривой настройке акции. Разделитель приводим к точке. */
+private fun дробь(значение: String): BigDecimal =
+    значение.trim().replace(",", ".").toBigDecimalOrNull() ?: BigDecimal.ZERO
 
 /**
  * Текст ошибки для агента.

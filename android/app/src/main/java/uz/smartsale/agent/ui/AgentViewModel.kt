@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import uz.smartsale.agent.data.PromotionEngine
 import uz.smartsale.agent.data.Repository
 import uz.smartsale.agent.data.SyncResult
 import uz.smartsale.agent.data.db.CatalogRow
@@ -28,6 +29,31 @@ data class CartLine(
     val amount: BigDecimal
         get() = qty.multiply(BigDecimal(product.price)).setScale(2, RoundingMode.HALF_UP)
 }
+
+/** Строка корзины после расчёта акций: со скидкой и суммой со скидкой. */
+data class PricedLine(
+    val product: CatalogRow,
+    val qty: BigDecimal,
+    val discountPercent: BigDecimal,
+    val amount: BigDecimal,
+)
+
+/** Бонусный товар от акции «купи N — получи M»: уходит в заказ бесплатной
+ *  строкой (100% скидка), агенту показывается отдельно. */
+data class BonusItem(
+    val productUuid: String,
+    val name: String,
+    val qty: BigDecimal,
+    val price: String,
+)
+
+/** Корзина после расчёта акций движком: строки со скидками, бонусы, итог. */
+data class PricedCart(
+    val lines: List<PricedLine> = emptyList(),
+    val bonuses: List<BonusItem> = emptyList(),
+    val total: BigDecimal = BigDecimal.ZERO,
+    val discount: BigDecimal = BigDecimal.ZERO,
+)
 
 class AgentViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -92,13 +118,110 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
     private val _currentCustomer = MutableStateFlow<CustomerEntity?>(null)
     val currentCustomer = _currentCustomer.asStateFlow()
 
+    /** Сумма корзины без скидок — для проверок; агенту показываем итог со
+     *  скидками из [pricedCart]. */
     val cartTotal: BigDecimal
         get() = _cart.value.fold(BigDecimal.ZERO) { сумма, строка -> сумма + строка.amount }
+
+    // Акции текущего клиента, загружаются при открытии карточки. Расчёт при
+    // наборе идёт по этому кэшу — без обращения к базе на каждый ввод.
+    private val _promotions = MutableStateFlow<List<PromotionEngine.Promotion>>(emptyList())
+
+    /** Корзина после расчёта акций движком: показывается агенту и уходит в
+     *  заказ. Пересчитывается при каждом изменении корзины. */
+    private val _pricedCart = MutableStateFlow(PricedCart())
+    val pricedCart = _pricedCart.asStateFlow()
+
+    // Имя и цена бонусного товара по виду цены клиента, разово при загрузке
+    // акций. Иначе резолвили бы их из базы на каждый ввод количества.
+    private var _bonusInfo: Map<String, Pair<String, String>> = emptyMap()
+
+    init {
+        // Пересчёт скидок при любом изменении корзины: агент видит акцию сразу,
+        // как набрал позицию (ровно то, чего не было в Моби-С).
+        viewModelScope.launch { _cart.collect { пересчитатьЦены(it) } }
+    }
 
     fun openCustomer(uuid: String) = viewModelScope.launch {
         _currentCustomer.value = db.customers().byUuid(uuid)
         _cart.value = emptyList()
+        val акции = repository.promotionsForEngine()
+        _promotions.value = акции
+        _bonusInfo = загрузитьБонусы(акции)
+        // Явный пересчёт: акции грузятся после очистки корзины, а изменения
+        // корзины (пустой) уже отработали по пустым акциям.
+        пересчитатьЦены(_cart.value)
     }
+
+    /** Имя и цена бонусных товаров акций — разово, чтобы не дёргать базу на
+     *  каждый пересчёт корзины. */
+    private suspend fun загрузитьБонусы(
+        акции: List<PromotionEngine.Promotion>,
+    ): Map<String, Pair<String, String>> {
+        val видЦены = _currentCustomer.value?.priceTypeUuid.orEmpty()
+        val товары = акции
+            .filter { it.mechanic == "bonus" && it.bonusProductUuid.isNotEmpty() }
+            .map { it.bonusProductUuid }
+            .distinct()
+        val карта = mutableMapOf<String, Pair<String, String>>()
+        for (uuid in товары) {
+            val имя = repository.productName(uuid)
+            val цена = if (видЦены.isNotEmpty())
+                repository.priceOf(uuid, видЦены) ?: "0" else "0"
+            карта[uuid] = имя to цена
+        }
+        return карта
+    }
+
+    /** Прогнать корзину через движок акций и сложить оценённую корзину. */
+    private fun пересчитатьЦены(корзина: List<CartLine>) {
+        if (корзина.isEmpty()) {
+            _pricedCart.value = PricedCart()
+            return
+        }
+        val строкиДвижка = корзина.map {
+            PromotionEngine.Line(
+                productUuid = it.product.uuid,
+                categoryUuid = it.product.categoryUuid,
+                price = цена(it.product.price),
+                qty = it.qty,
+            )
+        }
+        val итог = PromotionEngine.apply(строкиДвижка, _promotions.value, Repository.today())
+
+        var скидкаВсего = BigDecimal.ZERO
+        val строки = корзина.map { позиция ->
+            val процент = итог.lineDiscounts[позиция.product.uuid]?.discountPercent
+                ?: BigDecimal.ZERO
+            // Брутто округляем той же мерой, что и сумму со скидкой, иначе
+            // разница даёт «шумовую» копейку скидки там, где акции нет.
+            val брутто = позиция.qty.multiply(цена(позиция.product.price))
+                .setScale(2, RoundingMode.HALF_UP)
+            val сумма = брутто.multiply(BigDecimal(100).subtract(процент))
+                .divide(BigDecimal(100))
+                .setScale(2, RoundingMode.HALF_UP)
+            скидкаВсего += брутто - сумма
+            PricedLine(позиция.product, позиция.qty, процент, сумма)
+        }
+
+        val бонусы = итог.bonuses.map { бонус ->
+            val инфо = _bonusInfo[бонус.productUuid]
+            BonusItem(
+                productUuid = бонус.productUuid,
+                name = инфо?.first ?: бонус.productUuid,
+                qty = бонус.qty,
+                price = инфо?.second ?: "0",
+            )
+        }
+
+        val всего = строки.fold(BigDecimal.ZERO) { s, л -> s + л.amount }
+        _pricedCart.value = PricedCart(строки, бонусы, всего, скидкаВсего)
+    }
+
+    /** Цена из строки каталога в BigDecimal; пустая/битая → 0, чтобы набор не
+     *  падал на кривой цене (у акций разбор такой же безопасный). */
+    private fun цена(значение: String): BigDecimal =
+        значение.trim().replace(",", ".").toBigDecimalOrNull() ?: BigDecimal.ZERO
 
     fun putInCart(product: CatalogRow, qty: BigDecimal) {
         val текущие = _cart.value.toMutableList()
@@ -164,18 +287,34 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
 
-            val строки = _cart.value.map {
+            // Пересчитываем перед сохранением: последний ввод количества мог
+            // не успеть отразиться в _pricedCart (пересчёт идёт асинхронно на
+            // изменение корзины).
+            пересчитатьЦены(_cart.value)
+            val цены = _pricedCart.value
+
+            val строки = цены.lines.map {
                 OrderLineEntity(
                     orderUid = "",
                     productUuid = it.product.uuid,
                     qty = it.qty.toPlainString(),
                     price = it.product.price,
-                    discountPercent = "0",
+                    discountPercent = it.discountPercent.toPlainString(),
+                )
+            } + цены.bonuses.map {
+                // Бонус — бесплатная строка: цена товара со 100% скидкой. В УТ
+                // ляжет строкой с полной ручной скидкой.
+                OrderLineEntity(
+                    orderUid = "",
+                    productUuid = it.productUuid,
+                    qty = it.qty.toPlainString(),
+                    price = it.price,
+                    discountPercent = "100",
                 )
             }
             val склад = db.catalog().warehouses().firstOrNull()?.uuid
 
-            repository.saveOrder(клиент.uuid, склад, paymentType, comment, строки, cartTotal)
+            repository.saveOrder(клиент.uuid, склад, paymentType, comment, строки, цены.total)
             _cart.value = emptyList()
             _message.value = "Заказ записан и уйдёт при первой связи"
             onDone()

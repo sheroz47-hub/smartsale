@@ -56,6 +56,11 @@ interface CatalogDao {
     @Query("SELECT * FROM products WHERE uuid = :uuid")
     suspend fun product(uuid: String): ProductEntity?
 
+    /** Цена товара по виду цены клиента. Нужна бонусному товару акции:
+     *  он уходит строкой заказа с ценой и 100% скидкой. */
+    @Query("SELECT price FROM prices WHERE productUuid = :productUuid AND priceTypeUuid = :priceTypeUuid")
+    suspend fun priceOf(productUuid: String, priceTypeUuid: String): String?
+
     @Query("SELECT * FROM warehouses WHERE active = 1 ORDER BY name")
     suspend fun warehouses(): List<WarehouseEntity>
 
