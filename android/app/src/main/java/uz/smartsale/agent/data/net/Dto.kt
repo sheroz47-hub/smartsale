@@ -50,6 +50,38 @@ data class PullResponse(
     val stocks: List<StockDto> = emptyList(),
     val customers: List<CustomerDto> = emptyList(),
     val routes: List<RouteDto> = emptyList(),
+    val promotions: List<PromotionDto> = emptyList(),
+)
+
+@Serializable
+data class PromotionDto(
+    val uuid: String,
+    val name: String,
+    val mechanic: String,
+    @SerialName("date_from") val dateFrom: String = "",
+    @SerialName("date_to") val dateTo: String = "",
+    @SerialName("segment_uuid") val segmentUuid: String = "",
+    val priority: Int = 0,
+    val percent: String = "0",
+    @SerialName("buy_qty") val buyQty: String = "0",
+    @SerialName("bonus_product_uuid") val bonusProductUuid: String = "",
+    @SerialName("bonus_qty") val bonusQty: String = "0",
+    val active: Boolean = true,
+    val products: List<PromotionProductDto> = emptyList(),
+    val thresholds: List<PromotionThresholdDto> = emptyList(),
+)
+
+@Serializable
+data class PromotionProductDto(
+    val uuid: String,
+    @SerialName("is_group") val isGroup: Boolean = false,
+)
+
+@Serializable
+data class PromotionThresholdDto(
+    @SerialName("min_qty") val minQty: String = "0",
+    @SerialName("min_sum") val minSum: String = "0",
+    val percent: String = "0",
 )
 
 @Serializable

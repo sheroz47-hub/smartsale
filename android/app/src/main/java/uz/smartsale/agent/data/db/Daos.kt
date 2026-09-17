@@ -38,6 +38,7 @@ interface CatalogDao {
     @Query(
         """
         SELECT p.uuid, p.code, p.name, p.unit, p.packageQty, p.packageName,
+               p.categoryUuid AS categoryUuid,
                pr.price AS price,
                COALESCE((SELECT SUM(CAST(s.free AS REAL)) FROM stocks s
                          WHERE s.productUuid = p.uuid), 0) AS free
@@ -70,6 +71,7 @@ data class CatalogRow(
     val unit: String,
     val packageQty: String,
     val packageName: String,
+    val categoryUuid: String?,
     val price: String,
     val free: Double,
 )
@@ -173,4 +175,54 @@ interface DocumentDao {
 
     @Query("SELECT customerUuid FROM visits WHERE date = :date")
     fun visitedOn(date: String): Flow<List<String>>
+}
+
+@Dao
+interface PromotionDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPromotions(items: List<PromotionEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProducts(items: List<PromotionProductEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertThresholds(items: List<PromotionThresholdEntity>)
+
+    @Query("DELETE FROM promotion_products WHERE promotionUuid IN (:uuids)")
+    suspend fun deleteProductsOf(uuids: List<String>)
+
+    @Query("DELETE FROM promotion_thresholds WHERE promotionUuid IN (:uuids)")
+    suspend fun deleteThresholdsOf(uuids: List<String>)
+
+    /**
+     * Приём пачки акций: сама акция и её состав. Состав переписывается
+     * целиком — акцию проще заменить, чем сверять построчно, а объём мал.
+     * Инкрементальная синхронизация присылает только изменившиеся акции,
+     * поэтому чистим состав лишь у пришедших.
+     */
+    @Transaction
+    suspend fun upsert(
+        promotions: List<PromotionEntity>,
+        products: List<PromotionProductEntity>,
+        thresholds: List<PromotionThresholdEntity>,
+    ) {
+        if (promotions.isEmpty()) return
+        val uuids = promotions.map { it.uuid }
+        upsertPromotions(promotions)
+        deleteProductsOf(uuids)
+        deleteThresholdsOf(uuids)
+        if (products.isNotEmpty()) insertProducts(products)
+        if (thresholds.isNotEmpty()) insertThresholds(thresholds)
+    }
+
+    /** Действующие акции для движка. Неактивные (погашенные) не берём. */
+    @Query("SELECT * FROM promotions WHERE active = 1")
+    suspend fun activePromotions(): List<PromotionEntity>
+
+    @Query("SELECT * FROM promotion_products")
+    suspend fun allProducts(): List<PromotionProductEntity>
+
+    @Query("SELECT * FROM promotion_thresholds")
+    suspend fun allThresholds(): List<PromotionThresholdEntity>
 }

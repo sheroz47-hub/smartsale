@@ -12,6 +12,9 @@ import uz.smartsale.agent.data.db.PaymentEntity
 import uz.smartsale.agent.data.db.PriceEntity
 import uz.smartsale.agent.data.db.PriceTypeEntity
 import uz.smartsale.agent.data.db.ProductEntity
+import uz.smartsale.agent.data.db.PromotionEntity
+import uz.smartsale.agent.data.db.PromotionProductEntity
+import uz.smartsale.agent.data.db.PromotionThresholdEntity
 import uz.smartsale.agent.data.db.RouteStopEntity
 import uz.smartsale.agent.data.db.StockEntity
 import uz.smartsale.agent.data.db.VisitEntity
@@ -234,6 +237,31 @@ class Repository(private val context: Context) {
                             RouteStopEntity(маршрут.weekday, it.customerUuid, it.sortOrder)
                         }
                     }
+                )
+            }
+
+            if (ответ.promotions.isNotEmpty()) {
+                db.promotions().upsert(
+                    promotions = ответ.promotions.map {
+                        PromotionEntity(it.uuid, it.name, it.mechanic, it.dateFrom,
+                            it.dateTo, it.segmentUuid, it.priority, it.percent,
+                            it.buyQty, it.bonusProductUuid, it.bonusQty, it.active)
+                    },
+                    products = ответ.promotions.flatMap { акция ->
+                        акция.products.map {
+                            PromotionProductEntity(
+                                promotionUuid = акция.uuid,
+                                productUuid = it.uuid, isGroup = it.isGroup)
+                        }
+                    },
+                    thresholds = ответ.promotions.flatMap { акция ->
+                        акция.thresholds.map {
+                            PromotionThresholdEntity(
+                                promotionUuid = акция.uuid,
+                                minQty = it.minQty, minSum = it.minSum,
+                                percent = it.percent)
+                        }
+                    },
                 )
             }
 

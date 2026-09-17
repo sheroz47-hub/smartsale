@@ -152,6 +152,52 @@ data class PaymentEntity(
     val error: String = "",
 )
 
+/**
+ * Акция — условие скидки, настроенное в УТ и принятое с сервера.
+ *
+ * Считает акции движок приложения при наборе заказа (PromotionEngine); в УТ
+ * результат уходит ручной скидкой в строке заказа. Механика [mechanic]:
+ * percent — процент на товары; volume — ступенчатая скидка от объёма; bonus —
+ * купи N — получи M бесплатно. Товары акции и пороги — в отдельных таблицах.
+ *
+ * Погашенная в УТ акция приходит с [active] = false: движок её пропускает, но
+ * запись остаётся, пока сервер не перестанет её слать (иначе снятая акция
+ * продолжала бы действовать на телефоне).
+ */
+@Entity(tableName = "promotions")
+data class PromotionEntity(
+    @PrimaryKey val uuid: String,
+    val name: String,
+    val mechanic: String,
+    val dateFrom: String,
+    val dateTo: String,
+    val segmentUuid: String,
+    val priority: Int,
+    val percent: String,
+    val buyQty: String,
+    val bonusProductUuid: String,
+    val bonusQty: String,
+    val active: Boolean,
+)
+
+@Entity(tableName = "promotion_products", indices = [Index("promotionUuid")])
+data class PromotionProductEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val promotionUuid: String,
+    /** uuid товара ИЛИ группы номенклатуры (см. isGroup). */
+    val productUuid: String,
+    val isGroup: Boolean,
+)
+
+@Entity(tableName = "promotion_thresholds", indices = [Index("promotionUuid")])
+data class PromotionThresholdEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val promotionUuid: String,
+    val minQty: String,
+    val minSum: String,
+    val percent: String,
+)
+
 @Entity(tableName = "visits", indices = [Index("synced")])
 data class VisitEntity(
     @PrimaryKey val clientUid: String,
