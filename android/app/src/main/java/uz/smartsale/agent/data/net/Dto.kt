@@ -160,10 +160,15 @@ data class CustomerDto(
     @SerialName("payment_type") val paymentType: String,
     @SerialName("credit_limit") val creditLimit: String,
     @SerialName("deferral_days") val deferralDays: Int,
+    @SerialName("limit_enabled") val limitEnabled: Boolean = false,
+    @SerialName("forbid_overdue") val forbidOverdue: Boolean = false,
     val blocked: Boolean,
     @SerialName("blocked_reason") val blockedReason: String,
     @SerialName("has_contract") val hasContract: Boolean = true,
-    val debt: String, val overdue: String, val active: Boolean,
+    val debt: String, val overdue: String,
+    @SerialName("overdue_days") val overdueDays: Int = 0,
+    @SerialName("debt_status") val debtStatus: String = "working",
+    val active: Boolean,
 )
 
 @Serializable

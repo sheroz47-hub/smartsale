@@ -264,10 +264,18 @@ def pull(request: Request, since: str = "",
             "payment_type": к.payment_type,
             "credit_limit": _число(к.credit_limit),
             "deferral_days": к.deferral_days,
+            "limit_enabled": к.limit_enabled,
+            "forbid_overdue": к.forbid_overdue,
             "blocked": к.blocked, "blocked_reason": к.blocked_reason,
             "has_contract": к.has_contract,
-            "debt": _число(services.customer_debt(session, к.id)),
-            "overdue": _число(services.customer_overdue(session, к.id)),
+            # Долг, просрочка и статус — мастер в УТ (РасчетыСКлиентамиПоСрокам),
+            # зеркалятся при обмене. Для агента берём именно их. Локальный
+            # services.customer_debt (отгрузки−оплаты SmartSale) ещё жив в
+            # офисном кабинете (main.py) — там долг может расходиться с этим.
+            "debt": _число(к.debt),
+            "overdue": _число(к.overdue_debt),
+            "overdue_days": к.overdue_days,
+            "debt_status": к.debt_status,
             "active": к.active,
         } for к in клиенты],
         "routes": [{

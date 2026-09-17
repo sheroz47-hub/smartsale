@@ -409,6 +409,31 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
             пересчитатьЦены(_cart.value)
             val цены = _pricedCart.value
 
+            // Кредитный контроль (Фаза 1). Проверяем только заказ «в долг»:
+            // наличная оплата долг не наращивает. Отдельного выбора
+            // «предоплата/на месте/долг» пока нет — им станет блок оплаты;
+            // сейчас «в долг» = оплата не наличными (payment_type != cash).
+            // Лимит и запрет просрочки — из действующего договора УТ, долг и
+            // просрочка тоже из УТ. Согласование РМ — Фаза 2, пока жёсткий блок.
+            if (paymentType != "cash") {
+                fun вЧисло(с: String) =
+                    с.trim().replace(" ", "").replace(",", ".").toBigDecimalOrNull()
+                        ?: BigDecimal.ZERO
+                val просрочка = вЧисло(клиент.overdue)
+                val долг = вЧисло(клиент.debt)
+                val лимит = вЧисло(клиент.creditLimit)
+                if (клиент.forbidOverdue && просрочка > BigDecimal.ZERO) {
+                    _message.value = "У клиента просроченный долг ${клиент.overdue}. " +
+                        "Отгрузка в долг запрещена — нужно согласование руководителя."
+                    return@launch
+                }
+                if (клиент.limitEnabled && долг + цены.total > лимит) {
+                    _message.value = "Долг ${клиент.debt} плюс заказ превысят лимит " +
+                        "${клиент.creditLimit}. Нужно согласование руководителя."
+                    return@launch
+                }
+            }
+
             val строки = цены.lines.map {
                 OrderLineEntity(
                     orderUid = "",

@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TaskPhotoEntity::class, LocationEntity::class,
         AuditQuestionEntity::class, AuditEntity::class, AuditAnswerEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -185,6 +185,31 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v6 → v7: кредитный контроль. Долг/просрочка/лимит теперь приходят из
+        // УТ; на клиента добавляются флаги принуждения лимита и запрета
+        // просрочки, дни просрочки и статус долга. Только ALTER — очередь
+        // документов и данные не теряются.
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `customers` ADD COLUMN `limitEnabled` " +
+                        "INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "ALTER TABLE `customers` ADD COLUMN `forbidOverdue` " +
+                        "INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "ALTER TABLE `customers` ADD COLUMN `overdueDays` " +
+                        "INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "ALTER TABLE `customers` ADD COLUMN `debtStatus` " +
+                        "TEXT NOT NULL DEFAULT 'working'"
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, AppDatabase::class.java, "smartsale.db"
@@ -193,7 +218,7 @@ abstract class AppDatabase : RoomDatabase() {
                 // пересборка здесь не годится: в базе лежат неотправленные
                 // заказы, и потерять их — потерять день работы агента.
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6)
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
                 .also { instance = it }
         }

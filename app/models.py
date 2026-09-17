@@ -351,10 +351,29 @@ class Customer(Base, Timestamped):
 
     # cash — наличными при отгрузке, transfer — перечислением.
     payment_type: Mapped[str] = mapped_column(String(16), default="cash")
+
+    # --- кредитный контроль (мастер — действующий договор УТ) ---------------
+    # Лимит долга и срок оплаты (дни) берутся из договора УТ при обмене.
     # Разрешённый долг. 0 — только по предоплате или за наличные.
     credit_limit: Mapped[Decimal] = mapped_column(Money, default=Decimal(0))
-    # Отсрочка платежа в днях: по ней считается просрочка.
+    # Отсрочка платежа в днях (СрокОплаты договора): по ней в УТ считается срок
+    # погашения, а значит и просрочка.
     deferral_days: Mapped[int] = mapped_column(SmallInteger, default=0)
+    # Контроль долга включён в договоре (ОграничиватьСуммуЗадолженности) —
+    # только тогда лимит принуждается при оформлении в долг.
+    limit_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Просроченная задолженность запрещена (ЗапрещаетсяПросроченнаяЗадолженность).
+    forbid_overdue: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Текущий долг клиента и его просроченная часть (из РасчетыСКлиентамиПоСрокам
+    # УТ). Считается в УТ, здесь только зеркалим для показа и блокировки.
+    debt: Mapped[Decimal] = mapped_column(Money, default=Decimal(0))
+    overdue_debt: Mapped[Decimal] = mapped_column(Money, default=Decimal(0))
+    # Дней просрочки по старейшему наступившему сроку (0 — нет просрочки).
+    overdue_days: Mapped[int] = mapped_column(SmallInteger, default=0)
+    # Статус долга по «Стандарту работы ТП»: working / problem / bad.
+    # Вычисляется из overdue_days при приёме (см. _статус_долга).
+    debt_status: Mapped[str] = mapped_column(String(16), default="working")
+
     # Запрет отгрузки: выставляется вручную, когда клиент перестал платить.
     blocked: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     blocked_reason: Mapped[str] = mapped_column(String(255), default="")

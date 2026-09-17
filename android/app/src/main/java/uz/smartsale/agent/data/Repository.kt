@@ -349,9 +349,10 @@ class Repository(private val context: Context) {
                 db.customers().upsert(ответ.customers.map {
                     CustomerEntity(it.uuid, it.code, it.name, it.legalName, it.inn,
                         it.phone, it.address, it.lat, it.lon, it.priceTypeUuid,
-                        it.paymentType, it.creditLimit, it.deferralDays, it.blocked,
-                        it.blockedReason, it.debt, it.overdue, it.active,
-                        it.hasContract)
+                        it.paymentType, it.creditLimit, it.deferralDays,
+                        it.limitEnabled, it.forbidOverdue, it.blocked,
+                        it.blockedReason, it.debt, it.overdue, it.overdueDays,
+                        it.debtStatus, it.active, it.hasContract)
                 })
             }
 

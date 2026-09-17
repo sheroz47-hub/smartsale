@@ -134,14 +134,22 @@ def check_order_allowed(session: Session, order: Order) -> None:
             имя = товар.name if товар else строка.product_id
             raise ОшибкаПравил(f"не задана цена: {имя}")
 
-    # Лимит проверяем по уже накопленному долгу плюс этот заказ. Клиенту с
-    # нулевым лимитом заказ за наличные разрешён: он платит при отгрузке.
-    if клиент.credit_limit > 0 and order.payment_type != "cash":
-        долг = customer_debt(session, клиент.id)
-        if долг + order.amount > клиент.credit_limit:
+    # Кредитный контроль (Фаза 1). Долг, лимит и просрочка — мастер в УТ
+    # (зеркалятся в Customer при обмене), не локальный расчёт: он знал только
+    # заказы этого приложения. Проверяем лишь заказ «в долг» (не за наличные) —
+    # наличная оплата долг не наращивает. Правила принуждаются ровно по флагам
+    # договора: forbid_overdue (ЗапрещаетсяПросроченнаяЗадолженность) и
+    # limit_enabled (ОграничиватьСуммуЗадолженности). Держим ту же логику, что
+    # и блок на телефоне, чтобы сервер и приложение не расходились.
+    if order.payment_type != "cash":
+        if клиент.forbid_overdue and клиент.overdue_debt > 0:
+            raise ОшибкаПравил(
+                f"у клиента «{клиент.name}» просроченный долг "
+                f"{клиент.overdue_debt:.0f}: отгрузка в долг запрещена")
+        if клиент.limit_enabled and клиент.debt + order.amount > клиент.credit_limit:
             raise ОшибкаПравил(
                 f"превышен лимит клиента «{клиент.name}»: "
-                f"долг {долг:.0f}, заказ {order.amount:.0f}, "
+                f"долг {клиент.debt:.0f}, заказ {order.amount:.0f}, "
                 f"лимит {клиент.credit_limit:.0f}")
 
 
@@ -260,56 +268,26 @@ def ship_order(session: Session, order: Order, user_id: int | None = None,
 # --- деньги ------------------------------------------------------------------
 
 def customer_debt(session: Session, customer_id: int) -> Decimal:
-    """Долг клиента: отгружено минус оплачено.
+    """Долг клиента — из зеркала УТ (Customer.debt).
 
-    Считается запросом, а не хранится полем. Хранимое сальдо рано или поздно
-    разъезжается с документами — при откате транзакции, при правке задним
-    числом, — и тогда цифре в карточке никто не верит. Клиентов тысячи, не
-    миллионы, запрос дешёвый.
+    Мастер долга — УТ (регистр РасчетыСКлиентамиПоСрокам): значение зеркалится
+    в Customer при обмене. Раньше долг считался локально (отгрузки−оплаты
+    SmartSale), но в связке с УТ отгрузок здесь нет, и единственная достоверная
+    цифра приходит из УТ. Так офис (кабинет) и агент (телефон) видят один долг.
     """
-    отгружено = session.scalar(
-        select(func.coalesce(func.sum(Shipment.amount), 0)).where(
-            Shipment.customer_id == customer_id,
-            Shipment.status == "shipped")) or Decimal(0)
-    оплачено = session.scalar(
-        select(func.coalesce(func.sum(Payment.amount), 0)).where(
-            Payment.customer_id == customer_id)) or Decimal(0)
-    return округлить(Decimal(отгружено) - Decimal(оплачено))
+    клиент = session.get(Customer, customer_id)
+    return округлить(клиент.debt) if клиент else Decimal(0)
 
 
 def customer_overdue(session: Session, customer_id: int,
                      on: date | None = None) -> Decimal:
-    """Просроченная часть долга.
+    """Просроченная часть долга — из зеркала УТ (Customer.overdue_debt).
 
-    Оплаты гасят накладные по старшинству — сначала самые ранние. Это не
-    бухгалтерское разнесение, а оценка: точное разнесение по документам
-    делает учётная система, здесь нужно понять, пора ли останавливать
-    отгрузку.
+    См. customer_debt: мастер — УТ. Параметр on оставлен для совместимости
+    вызовов; зеркало отражает состояние на момент последнего обмена.
     """
-    сегодня = on or date.today()
-
-    накладные = session.scalars(
-        select(Shipment).where(
-            Shipment.customer_id == customer_id,
-            Shipment.status == "shipped").order_by(Shipment.date, Shipment.id)
-    ).all()
-
-    оплачено = session.scalar(
-        select(func.coalesce(func.sum(Payment.amount), 0)).where(
-            Payment.customer_id == customer_id)) or Decimal(0)
-    остаток_оплат = Decimal(оплачено)
-
-    просрочено = Decimal(0)
-    for накладная in накладные:
-        непогашено = накладная.amount
-        if остаток_оплат > 0:
-            зачёт = min(остаток_оплат, непогашено)
-            непогашено -= зачёт
-            остаток_оплат -= зачёт
-        if непогашено > 0 and накладная.due_date and накладная.due_date < сегодня:
-            просрочено += непогашено
-
-    return округлить(просрочено)
+    клиент = session.get(Customer, customer_id)
+    return округлить(клиент.overdue_debt) if клиент else Decimal(0)
 
 
 def agent_cash_on_hand(session: Session, agent_id: int) -> Decimal:

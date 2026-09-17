@@ -302,6 +302,19 @@ fun CustomerScreen(vm: AgentViewModel, onOrder: () -> Unit, onBack: () -> Unit) 
                 Строка("Просрочено", деньги(текущий.overdue))
                 Строка("Лимит", деньги(текущий.creditLimit))
                 Строка("Отсрочка", "${текущий.deferralDays} дн.")
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                    Text("Статус долга", color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.weight(1f))
+                    Text(
+                        статусДолгаТекст(текущий.debtStatus, текущий.overdueDays),
+                        fontWeight = FontWeight.Bold,
+                        color = when (текущий.debtStatus) {
+                            "bad" -> MaterialTheme.colorScheme.error
+                            "problem" -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.primary
+                        }
+                    )
+                }
                 if (текущий.blocked) {
                     Text("Отгрузка запрещена: ${текущий.blockedReason}",
                         color = MaterialTheme.colorScheme.error,
@@ -528,6 +541,17 @@ private fun АудитДиалог(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
     )
+}
+
+/** Ярлык статуса долга по «Стандарту работы ТП»: Рабочий/Проблемный/Плохой,
+ *  с днями просрочки. */
+private fun статусДолгаТекст(статус: String, дней: Int): String {
+    val суффикс = if (дней > 0) " ($дней дн.)" else ""
+    return when (статус) {
+        "bad" -> "Плохой$суффикс"
+        "problem" -> "Проблемный$суффикс"
+        else -> "Рабочий"
+    }
 }
 
 @Composable

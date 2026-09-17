@@ -84,12 +84,20 @@ data class CustomerEntity(
     val paymentType: String,
     val creditLimit: String,
     val deferralDays: Int,
+    /** Лимит долга принуждается (ОграничиватьСуммуЗадолженности договора). */
+    val limitEnabled: Boolean = false,
+    /** Просроченный долг запрещён (ЗапрещаетсяПросроченнаяЗадолженность). */
+    val forbidOverdue: Boolean = false,
     val blocked: Boolean,
     val blockedReason: String,
     /** Долг и просрочка приходят с сервера посчитанными: считать их на
-     *  телефоне не по чему — отгрузок и оплат других агентов он не видит. */
+     *  телефоне не по чему — отгрузок и оплат других агентов он не видит.
+     *  Мастер — УТ (РасчетыСКлиентамиПоСрокам). */
     val debt: String,
     val overdue: String,
+    /** Дней просрочки по старейшему сроку и статус долга working/problem/bad. */
+    val overdueDays: Int = 0,
+    val debtStatus: String = "working",
     val active: Boolean,
     /** Есть ли у клиента действующий договор в УТ. Без него УТ не примет заказ
      *  и оплату, поэтому оформление по клиенту в приложении запрещается. */
