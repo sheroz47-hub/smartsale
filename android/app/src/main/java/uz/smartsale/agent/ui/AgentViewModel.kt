@@ -127,6 +127,10 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
     val recentPayments = db.documents().recentPayments()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    /** Активные вопросы аудита точки — форма осмотра (общая всем агентам). */
+    val auditQuestions = repository.auditQuestions()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     // Открытый на просмотр документ (заказ/оплата). Экран «Отправленные»
     // открывает его двойным кликом; строки заказа подтягиваются с именами
     // товаров из каталога.
@@ -472,6 +476,14 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
         val клиент = _currentCustomer.value ?: return@launch
         repository.refineLocation(клиент.uuid, lat, lon)
         _message.value = "Координаты уточнены, уйдут при обмене"
+        sync()
+    }
+
+    /** Сохранить пройденный аудит текущего клиента. answers: uuid вопроса → ответ. */
+    fun submitAudit(answers: Map<String, String>) = viewModelScope.launch {
+        val клиент = _currentCustomer.value ?: return@launch
+        repository.submitAudit(клиент.uuid, answers)
+        _message.value = "Аудит сохранён, уйдёт при обмене"
         sync()
     }
 

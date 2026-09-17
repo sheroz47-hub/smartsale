@@ -17,8 +17,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PromotionEntity::class, PromotionProductEntity::class,
         PromotionThresholdEntity::class, TaskEntity::class,
         TaskPhotoEntity::class, LocationEntity::class,
+        AuditQuestionEntity::class, AuditEntity::class, AuditAnswerEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -29,6 +30,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun promotions(): PromotionDao
     abstract fun tasks(): TaskDao
     abstract fun media(): MediaDao
+    abstract fun audits(): AuditDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -144,6 +146,45 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v5 → v6: аудит точки (вопросы из УТ + пройденные аудиты с ответами).
+        // Только CREATE TABLE — существующие таблицы не трогаются.
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `audit_questions` (" +
+                        "`uuid` TEXT NOT NULL, `text` TEXT NOT NULL, " +
+                        "`answerType` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, " +
+                        "`required` INTEGER NOT NULL, `active` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`uuid`))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_audit_questions_active` " +
+                        "ON `audit_questions` (`active`)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `audits` (" +
+                        "`clientUid` TEXT NOT NULL, `customerUuid` TEXT NOT NULL, " +
+                        "`date` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                        "`synced` INTEGER NOT NULL, `error` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`clientUid`))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_audits_synced` " +
+                        "ON `audits` (`synced`)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `audit_answers` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`auditUid` TEXT NOT NULL, `questionUuid` TEXT NOT NULL, " +
+                        "`value` TEXT NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_audit_answers_auditUid` " +
+                        "ON `audit_answers` (`auditUid`)"
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, AppDatabase::class.java, "smartsale.db"
@@ -152,7 +193,7 @@ abstract class AppDatabase : RoomDatabase() {
                 // пересборка здесь не годится: в базе лежат неотправленные
                 // заказы, и потерять их — потерять день работы агента.
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5)
+                    MIGRATION_4_5, MIGRATION_5_6)
                 .build()
                 .also { instance = it }
         }

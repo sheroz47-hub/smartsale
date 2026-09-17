@@ -37,9 +37,9 @@ from . import ut_client  # noqa: E402
 from .auth import check_secret, hash_secret  # noqa: E402
 from .db import SessionLocal, engine  # noqa: E402
 from .models import (  # noqa: E402
-    Base, Customer, Organization, Price, PriceType, Product, ProductCategory,
-    Promotion, PromotionProduct, PromotionThreshold, Route, RouteStop, Stock,
-    Task, User, Warehouse,
+    AuditQuestion, Base, Customer, Organization, Price, PriceType, Product,
+    ProductCategory, Promotion, PromotionProduct, PromotionThreshold, Route,
+    RouteStop, Stock, Task, User, Warehouse,
 )
 
 log = logging.getLogger("sync_from_ut")
@@ -421,6 +421,39 @@ def _принять_задания(session: Session) -> None:
     session.commit()
 
 
+def _принять_вопросы_аудита(session: Session) -> None:
+    """Вопросы аудита точки из УТ (meta.audit_questions). Upsert по uuid.
+    Пропавшие гасим active=false ТОЛЬКО когда данные реально пришли (как у
+    маршрутов/заданий): пустой ответ при сбое иначе снёс бы форму аудита.
+    """
+    данные = ut_client.получить("meta")
+    вопросы_ут = данные.get("audit_questions")
+    вопросы = _карта(session, AuditQuestion)
+
+    виденные = set()
+    for э in вопросы_ут or []:
+        uid = э.get("uid")
+        if not uid:
+            continue
+        в = вопросы.get(uid) or AuditQuestion(uuid=uid)
+        в.text = э.get("text", "")
+        в.answer_type = э.get("answer_type", "string") or "string"
+        в.sort_order = int(_dec(э.get("order")))
+        в.required = bool(э.get("required", False))
+        в.active = True
+        if в.id is None:
+            session.add(в)
+            вопросы[uid] = в
+        виденные.add(uid)
+
+    if вопросы_ут:
+        for uid, в in вопросы.items():
+            if uid not in виденные and в.active:
+                в.active = False
+
+    session.commit()
+
+
 def _принять_акции(session: Session) -> None:
     элементы = ut_client.получить_список("promotions")
     пришедшие = {э["uid"] for э in элементы if э.get("uid")}
@@ -483,6 +516,7 @@ def _принять_акции(session: Session) -> None:
     ("клиенты", _принять_клиентов),
     ("маршруты", _принять_маршруты),
     ("задания", _принять_задания),
+    ("вопросы аудита", _принять_вопросы_аудита),
     ("акции", _принять_акции),
 )
 

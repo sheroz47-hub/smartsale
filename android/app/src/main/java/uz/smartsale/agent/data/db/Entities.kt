@@ -263,6 +263,43 @@ data class LocationEntity(
     val error: String = "",
 )
 
+/**
+ * Вопрос аудита точки — зеркало из УТ (через сервер). Телефон строит из
+ * активных вопросов форму осмотра. [answerType]: string/number/bool.
+ */
+@Entity(tableName = "audit_questions", indices = [Index("active")])
+data class AuditQuestionEntity(
+    @PrimaryKey val uuid: String,
+    val text: String,
+    val answerType: String,
+    val sortOrder: Int,
+    val required: Boolean,
+    val active: Boolean,
+)
+
+/**
+ * Пройденный аудит точки — локальная очередь на отправку. [clientUid] —
+ * ключ идемпотентности, [synced] поднимается после подтверждения сервером.
+ */
+@Entity(tableName = "audits", indices = [Index("synced")])
+data class AuditEntity(
+    @PrimaryKey val clientUid: String,
+    val customerUuid: String,
+    val date: String,
+    val createdAt: Long,
+    val synced: Boolean = false,
+    val error: String = "",
+)
+
+/** Ответ на вопрос в рамках одного аудита. */
+@Entity(tableName = "audit_answers", indices = [Index("auditUid")])
+data class AuditAnswerEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val auditUid: String,
+    val questionUuid: String,
+    val value: String,
+)
+
 @Entity(tableName = "visits", indices = [Index("synced")])
 data class VisitEntity(
     @PrimaryKey val clientUid: String,

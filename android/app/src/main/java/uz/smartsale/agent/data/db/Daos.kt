@@ -300,6 +300,43 @@ interface MediaDao {
 }
 
 @Dao
+interface AuditDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertQuestions(items: List<AuditQuestionEntity>)
+
+    /** Активные вопросы по порядку — форма осмотра точки. */
+    @Query("SELECT * FROM audit_questions WHERE active = 1 ORDER BY sortOrder, text")
+    fun activeQuestions(): Flow<List<AuditQuestionEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAudit(audit: AuditEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAnswers(answers: List<AuditAnswerEntity>)
+
+    @Transaction
+    suspend fun saveAudit(audit: AuditEntity, answers: List<AuditAnswerEntity>) {
+        insertAudit(audit)
+        insertAnswers(answers)
+    }
+
+    @Query("SELECT * FROM audits WHERE synced = 0 ORDER BY createdAt")
+    suspend fun pendingAudits(): List<AuditEntity>
+
+    @Query("SELECT * FROM audit_answers WHERE auditUid = :auditUid")
+    suspend fun answersOf(auditUid: String): List<AuditAnswerEntity>
+
+    @Query("UPDATE audits SET synced = 1, error = '' WHERE clientUid = :uid")
+    suspend fun markAuditSent(uid: String)
+
+    /** Отказ сервера по существу (клиент не найден) — терминальный: снимаем
+     *  с очереди. Сетевой сбой сюда не попадает (ловится выше). */
+    @Query("UPDATE audits SET synced = 1, error = :error WHERE clientUid = :uid")
+    suspend fun markAuditRejected(uid: String, error: String)
+}
+
+@Dao
 interface PromotionDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

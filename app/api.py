@@ -34,9 +34,9 @@ from .auth import (
 from .config import CURRENCY, REQUIRE_VISIT_GPS, SYNC_PAGE_SIZE
 from .db import get_session
 from .models import (
-    Customer, CustomerGeoPush, Device, Order, OrderLine, Payment, Price,
-    PriceType, Product, ProductCategory, Promotion, Route, RouteStop, Stock,
-    SyncLog, Task, TaskPhoto, User, Visit, Warehouse,
+    Audit, AuditAnswer, AuditQuestion, Customer, CustomerGeoPush, Device, Order,
+    OrderLine, Payment, Price, PriceType, Product, ProductCategory, Promotion,
+    Route, RouteStop, Stock, SyncLog, Task, TaskPhoto, User, Visit, Warehouse,
 )
 
 # Предел размера одного фото. Снимок сжимается на телефоне; на шине это ещё и
@@ -212,6 +212,9 @@ def pull(request: Request, since: str = "",
     # (выполнение уже принято) телефон убирает из списка к исполнению.
     задания = изменённые(Task, select(Task).where(Task.agent_id == агент.id))
 
+    # Вопросы аудита точки — всем агентам одинаково (форма осмотра общая).
+    вопросы_аудита = изменённые(AuditQuestion)
+
     # Акции — условия для движка скидок на телефоне. Приходят всем агентам
     # одинаково (отбор по клиенту/сегменту делает движок при наборе заказа).
     # Отданные с active=false — погашенные: телефон обязан их убрать.
@@ -280,6 +283,10 @@ def pull(request: Request, since: str = "",
             "date": з.date.isoformat() if з.date else "",
             "text": з.text, "done": з.done, "active": з.active,
         } for з in задания],
+        "audit_questions": [{
+            "uuid": в.uuid, "text": в.text, "answer_type": в.answer_type,
+            "order": в.sort_order, "required": в.required, "active": в.active,
+        } for в in вопросы_аудита],
         "promotions": [{
             "uuid": а.uuid, "name": а.name, "mechanic": а.mechanic,
             "date_from": а.date_from.isoformat() if а.date_from else "",
@@ -402,12 +409,25 @@ class ЛокацияКлиента(BaseModel):
     lon: str
 
 
+class ОтветАудита(BaseModel):
+    question_uuid: str
+    value: str = ""
+
+
+class АудитСТелефона(BaseModel):
+    client_uid: str = Field(min_length=8, max_length=36)
+    customer_uuid: str
+    date: date
+    answers: list[ОтветАудита] = []
+
+
 class ПакетОтправки(BaseModel):
     orders: list[ЗаказСТелефона] = []
     payments: list[ОплатаСТелефона] = []
     visits: list[ВизитСТелефона] = []
     tasks: list[ВыполнениеЗадания] = []
     locations: list[ЛокацияКлиента] = []
+    audits: list[АудитСТелефона] = []
 
 
 @router.post("/sync/push")
@@ -422,7 +442,7 @@ def push(пакет: ПакетОтправки, device: Device = Depends(curren
     начало = time.monotonic()
     агент: User = device.user
     результат = {"orders": [], "payments": [], "visits": [], "tasks": [],
-                 "locations": []}
+                 "locations": [], "audits": []}
 
     for заказ in пакет.orders:
         результат["orders"].append(_принять_заказ(session, агент, заказ))
@@ -434,6 +454,8 @@ def push(пакет: ПакетОтправки, device: Device = Depends(curren
         результат["tasks"].append(_принять_выполнение_задания(session, агент, задание))
     for локация in пакет.locations:
         результат["locations"].append(_принять_локацию(session, агент, локация))
+    for аудит in пакет.audits:
+        результат["audits"].append(_принять_аудит(session, агент, аудит))
 
     session.add(SyncLog(
         device_id=device.id, user_id=агент.id, direction="push",
@@ -647,6 +669,36 @@ def _принять_локацию(session: Session, агент: User,
     буфер.at = datetime.now(timezone.utc)
 
     return {"customer_uuid": данные.customer_uuid, "status": "accepted"}
+
+
+def _принять_аудит(session: Session, агент: User, данные: АудитСТелефона) -> dict:
+    """Пройденный аудит точки. Идемпотентно по client_uid; в УТ уходит обратным
+    каналом (push_to_ut)."""
+    существующий = session.scalar(
+        select(Audit).where(Audit.client_uid == данные.client_uid))
+    if существующий is not None:
+        return {"client_uid": данные.client_uid, "status": "accepted"}
+
+    клиент = session.scalar(
+        select(Customer).where(Customer.uuid == данные.customer_uuid))
+    if клиент is None:
+        return _отказ(данные.client_uid, "клиент не найден на сервере")
+
+    аудит = Audit(
+        client_uid=данные.client_uid,
+        customer_id=клиент.id,
+        agent_id=агент.id,
+        date=данные.date,
+    )
+    for ответ in данные.answers:
+        if not ответ.question_uuid:
+            continue
+        аудит.answers.append(AuditAnswer(
+            question_uuid=ответ.question_uuid, value=ответ.value))
+    session.add(аудит)
+    session.flush()
+
+    return {"client_uid": данные.client_uid, "status": "accepted"}
 
 
 def _отказ(client_uid: str, причина: str) -> dict:

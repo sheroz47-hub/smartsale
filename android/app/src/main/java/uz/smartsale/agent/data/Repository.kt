@@ -10,6 +10,9 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import uz.smartsale.agent.data.db.AppDatabase
+import uz.smartsale.agent.data.db.AuditAnswerEntity
+import uz.smartsale.agent.data.db.AuditEntity
+import uz.smartsale.agent.data.db.AuditQuestionEntity
 import uz.smartsale.agent.data.db.CategoryEntity
 import uz.smartsale.agent.data.db.CustomerEntity
 import uz.smartsale.agent.data.db.LocationEntity
@@ -29,6 +32,8 @@ import uz.smartsale.agent.data.db.TaskPhotoEntity
 import uz.smartsale.agent.data.db.VisitEntity
 import uz.smartsale.agent.data.db.WarehouseEntity
 import uz.smartsale.agent.data.net.ApiFactory
+import uz.smartsale.agent.data.net.AuditAnswerDto
+import uz.smartsale.agent.data.net.AuditDto
 import uz.smartsale.agent.data.net.LocationDto
 import uz.smartsale.agent.data.net.LoginRequest
 import uz.smartsale.agent.data.net.OrderDto
@@ -137,9 +142,11 @@ class Repository(private val context: Context) {
         val задания = db.tasks().pendingCompletions()
         val локации = media.pendingLocations()
         val фото = media.pendingPhotos()
+        val аудиты = db.audits().pendingAudits()
 
         if (заказы.isEmpty() && оплаты.isEmpty() && визиты.isEmpty()
-            && задания.isEmpty() && локации.isEmpty() && фото.isEmpty()) {
+            && задания.isEmpty() && локации.isEmpty() && фото.isEmpty()
+            && аудиты.isEmpty()) {
             return SyncResult(ok = true, message = "нечего отправлять")
         }
 
@@ -151,6 +158,7 @@ class Repository(private val context: Context) {
         // только если в ней что-то есть.
         val естьJson = заказы.isNotEmpty() || оплаты.isNotEmpty()
             || визиты.isNotEmpty() || задания.isNotEmpty() || локации.isNotEmpty()
+            || аудиты.isNotEmpty()
         if (естьJson) {
             val запрос = PushRequest(
                 orders = заказы.map { заказ ->
@@ -179,6 +187,16 @@ class Repository(private val context: Context) {
                 },
                 locations = локации.map {
                     LocationDto(it.customerUuid, it.lat, it.lon)
+                },
+                audits = аудиты.map { аудит ->
+                    AuditDto(
+                        clientUid = аудит.clientUid,
+                        customerUuid = аудит.customerUuid,
+                        date = аудит.date,
+                        answers = db.audits().answersOf(аудит.clientUid).map {
+                            AuditAnswerDto(it.questionUuid, it.value)
+                        },
+                    )
                 },
             )
 
@@ -224,6 +242,13 @@ class Repository(private val context: Context) {
                     // Отказ по существу (клиент не найден/чужой/битые координаты)
                     // постоянный — снимаем с очереди.
                     media.markLocationFailed(итог.customerUuid, итог.error); отклонено++
+                }
+            }
+            ответ.audits.forEach { итог ->
+                if (итог.accepted) {
+                    db.audits().markAuditSent(итог.clientUid); отправлено++
+                } else {
+                    db.audits().markAuditRejected(итог.clientUid, итог.error); отклонено++
                 }
             }
         }
@@ -352,6 +377,15 @@ class Repository(private val context: Context) {
                         uuid = it.uuid, customerUuid = it.customerUuid,
                         date = it.date, text = it.text, active = it.active,
                         done = it.done, synced = it.done)
+                })
+            }
+
+            if (ответ.auditQuestions.isNotEmpty()) {
+                db.audits().upsertQuestions(ответ.auditQuestions.map {
+                    AuditQuestionEntity(
+                        uuid = it.uuid, text = it.text, answerType = it.answerType,
+                        sortOrder = it.order, required = it.required,
+                        active = it.active)
                 })
             }
 
@@ -493,6 +527,26 @@ class Repository(private val context: Context) {
                     customerUuid = customerUuid,
                     lat = lat.toString(), lon = lon.toString(),
                     createdAt = System.currentTimeMillis()))
+        }
+
+    // --- аудит точки ----------------------------------------------------------
+
+    /** Активные вопросы аудита — форма осмотра точки. */
+    fun auditQuestions() = db.audits().activeQuestions()
+
+    /** Сохранить пройденный аудит в очередь отправки. answers: uuid вопроса →
+     *  ответ (число/да-нет тоже строкой). */
+    suspend fun submitAudit(customerUuid: String, answers: Map<String, String>) =
+        withContext(Dispatchers.IO) {
+            val uid = UUID.randomUUID().toString()
+            db.audits().saveAudit(
+                AuditEntity(
+                    clientUid = uid, customerUuid = customerUuid, date = today(),
+                    createdAt = System.currentTimeMillis()),
+                answers.map { (вопрос, ответ) ->
+                    AuditAnswerEntity(
+                        auditUid = uid, questionUuid = вопрос, value = ответ)
+                })
         }
 
     // --- акции ----------------------------------------------------------------

@@ -31,8 +31,8 @@ from sqlalchemy.orm import Session  # noqa: E402
 from . import ut_client  # noqa: E402
 from .db import SessionLocal, engine  # noqa: E402
 from .models import (  # noqa: E402
-    Base, Customer, CustomerGeoPush, Order, Payment, Product, Task, TaskPhoto,
-    User, UtExport,
+    Audit, Base, Customer, CustomerGeoPush, Order, Payment, Product, Task,
+    TaskPhoto, User, UtExport,
 )
 
 log = logging.getLogger("push_to_ut")
@@ -285,6 +285,58 @@ def _отправить_координаты(session: Session) -> int:
     return 0
 
 
+def _отправить_аудиты(session: Session) -> int:
+    """Результаты аудита точек в УТ (метод /audits, пачкой). Идемпотентность —
+    флагом Audit.pushed (ключ — client_uid). Принято или отклонено по существу
+    (клиент/вопрос не найден) — ставим pushed (терминально, повтор не поможет);
+    сбой связи — вся пачка остаётся до следующего прогона.
+    """
+    аудиты = session.scalars(select(Audit).where(Audit.pushed.is_(False))).all()
+    if not аудиты:
+        return 0
+
+    клиенты = {к.id: к.uuid for к in session.scalars(select(Customer)).all()}
+    агенты = {п.id: п.uuid for п in session.scalars(select(User)).all()}
+
+    по_uid = {}
+    пакет = {"audits": []}
+    for аудит in аудиты:
+        клиент_uid = клиенты.get(аудит.customer_id)
+        if not клиент_uid:
+            log.warning("аудит %s без клиента — пропущен", аудит.client_uid)
+            continue
+        по_uid[аудит.client_uid] = аудит
+        пакет["audits"].append({
+            "client_uid": аудит.client_uid,
+            "customer_uid": клиент_uid,
+            "agent_uid": агенты.get(аудит.agent_id, ""),
+            "date": аудит.date.isoformat(),
+            "answers": [
+                {"question_uid": о.question_uuid, "value": о.value}
+                for о in аудит.answers],
+        })
+    if not пакет["audits"]:
+        return 0
+
+    try:
+        ответ = ut_client.отправить("audits", пакет)
+    except ut_client.ОшибкаУТ:
+        log.exception("отправка аудитов не удалась")
+        return 1
+
+    for р in ответ.get("results", []):
+        аудит = по_uid.get(р.get("client_uid"))
+        if аудит is None:
+            continue
+        аудит.pushed = True
+        if р.get("status") != "accepted":
+            аудит.error = р.get("error", "")
+            log.warning("аудит %s отклонён УТ: %s",
+                        аудит.client_uid, р.get("error", ""))
+    session.commit()
+    return 0
+
+
 def run_push() -> int:
     """Отправка накопленных документов в УТ. Возвращает число упавших групп
     (0 — всё ушло). Сбой связи по одному агенту не роняет остальных: документ
@@ -322,6 +374,12 @@ def run_push() -> int:
             ошибок += 1
             session.rollback()
             log.exception("сбой отправки координат")
+        try:
+            ошибок += _отправить_аудиты(session)
+        except Exception:
+            ошибок += 1
+            session.rollback()
+            log.exception("сбой отправки аудитов")
     return ошибок
 
 

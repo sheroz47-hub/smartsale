@@ -51,7 +51,18 @@ data class PullResponse(
     val customers: List<CustomerDto> = emptyList(),
     val routes: List<RouteDto> = emptyList(),
     val tasks: List<TaskDto> = emptyList(),
+    @SerialName("audit_questions") val auditQuestions: List<AuditQuestionDto> = emptyList(),
     val promotions: List<PromotionDto> = emptyList(),
+)
+
+@Serializable
+data class AuditQuestionDto(
+    val uuid: String,
+    val text: String = "",
+    @SerialName("answer_type") val answerType: String = "string",
+    val order: Int = 100,
+    val required: Boolean = false,
+    val active: Boolean = true,
 )
 
 @Serializable
@@ -176,6 +187,7 @@ data class PushRequest(
     val visits: List<VisitDto> = emptyList(),
     val tasks: List<TaskDoneDto> = emptyList(),
     val locations: List<LocationDto> = emptyList(),
+    val audits: List<AuditDto> = emptyList(),
 )
 
 @Serializable
@@ -190,6 +202,20 @@ data class LocationDto(
     @SerialName("customer_uuid") val customerUuid: String,
     val lat: String,
     val lon: String,
+)
+
+@Serializable
+data class AuditAnswerDto(
+    @SerialName("question_uuid") val questionUuid: String,
+    val value: String = "",
+)
+
+@Serializable
+data class AuditDto(
+    @SerialName("client_uid") val clientUid: String,
+    @SerialName("customer_uuid") val customerUuid: String,
+    val date: String,
+    val answers: List<AuditAnswerDto>,
 )
 
 @Serializable
@@ -242,6 +268,8 @@ data class PushResponse(
     val visits: List<PushResult> = emptyList(),
     val tasks: List<TaskPushResult> = emptyList(),
     val locations: List<GeoPushResult> = emptyList(),
+    // Аудиты: результат keyed по client_uid — та же форма, что у заказов.
+    val audits: List<PushResult> = emptyList(),
     @SerialName("server_time") val serverTime: String = "",
 )
 

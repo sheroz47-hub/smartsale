@@ -27,11 +27,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -43,6 +45,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import uz.smartsale.agent.data.db.AuditQuestionEntity
 import uz.smartsale.agent.data.db.CustomerEntity
 import uz.smartsale.agent.data.db.OrderEntity
 import uz.smartsale.agent.data.db.PaymentEntity
@@ -267,9 +270,11 @@ fun CustomerScreen(vm: AgentViewModel, onOrder: () -> Unit, onBack: () -> Unit) 
     val клиент by vm.currentCustomer.collectAsState()
     val текущий = клиент ?: return
     val задания by vm.currentTasks.collectAsState()
+    val вопросыАудита by vm.auditQuestions.collectAsState()
     var сумма by remember { mutableStateOf("") }
     var примечание by remember { mutableStateOf("") }
     var заданиеКОтметке by remember { mutableStateOf<TaskEntity?>(null) }
+    var показатьАудит by remember { mutableStateOf(false) }
 
     val уточнитьКоординаты = rememberLocationRequester(
         onLocation = { lat, lon -> vm.refineCustomerLocation(lat, lon) },
@@ -364,9 +369,27 @@ fun CustomerScreen(vm: AgentViewModel, onOrder: () -> Unit, onBack: () -> Unit) 
                  else "Уточнить координаты")
         }
 
+        if (вопросыАудита.isNotEmpty()) {
+            OutlinedButton(onClick = { показатьАудит = true },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Text("Аудит точки")
+            }
+        }
+
         TextButton(onClick = onBack, modifier = Modifier.padding(top = 12.dp)) {
             Text("← к списку")
         }
+    }
+
+    if (показатьАудит) {
+        АудитДиалог(
+            вопросы = вопросыАудита,
+            onDismiss = { показатьАудит = false },
+            onSave = { ответы ->
+                vm.submitAudit(ответы)
+                показатьАудит = false
+            },
+        )
     }
 
     заданиеКОтметке?.let { задание ->
@@ -435,6 +458,73 @@ private fun ЗаданиеДиалог(vm: AgentViewModel, задание: TaskE
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Отмена") }
         },
+    )
+}
+
+@Composable
+private fun АудитДиалог(
+    вопросы: List<AuditQuestionEntity>,
+    onDismiss: () -> Unit,
+    onSave: (Map<String, String>) -> Unit,
+) {
+    val ответы = remember { mutableStateMapOf<String, String>() }
+    var ошибка by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Аудит точки") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                вопросы.forEach { вопрос ->
+                    val подпись = вопрос.text + if (вопрос.required) " *" else ""
+                    when (вопрос.answerType) {
+                        "bool" -> Row(
+                            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text(подпись, modifier = Modifier.weight(1f))
+                            Switch(checked = ответы[вопрос.uuid] == "1",
+                                onCheckedChange = {
+                                    ответы[вопрос.uuid] = if (it) "1" else "0"
+                                })
+                        }
+                        "number" -> OutlinedTextField(
+                            value = ответы[вопрос.uuid] ?: "",
+                            onValueChange = { ответы[вопрос.uuid] = it },
+                            label = { Text(подпись) },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                        else -> OutlinedTextField(
+                            value = ответы[вопрос.uuid] ?: "",
+                            onValueChange = { ответы[вопрос.uuid] = it },
+                            label = { Text(подпись) },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    }
+                }
+                if (ошибка.isNotBlank()) {
+                    Text(ошибка, color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val итог = вопросы.associate { вопрос ->
+                    val значение = when (вопрос.answerType) {
+                        "bool" -> if (ответы[вопрос.uuid] == "1") "1" else "0"
+                        else -> (ответы[вопрос.uuid] ?: "").trim()
+                    }
+                    вопрос.uuid to значение
+                }
+                val естьПропуск = вопросы.any {
+                    it.required && it.answerType != "bool" &&
+                        итог[it.uuid].isNullOrBlank()
+                }
+                if (естьПропуск) ошибка = "Заполните обязательные поля (*)"
+                else onSave(итог)
+            }) { Text("Сохранить") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
     )
 }
 

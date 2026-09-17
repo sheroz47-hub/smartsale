@@ -786,6 +786,78 @@ class UtExport(Base):
         DateTime(timezone=True), server_default=func.now())
 
 
+# --- аудит точки -------------------------------------------------------------
+
+class AuditQuestion(Base, Timestamped):
+    """Вопрос аудита точки, настроенный в УТ.
+
+    Каталог вопросов — производный от УТ (uuid = uid справочника
+    SmartSale_ВопросыАудита), приём это upsert по uuid. Телефон строит из
+    активных вопросов форму осмотра. `answer_type`: string — текст, number —
+    число, bool — да/нет; по нему телефон выбирает вид поля.
+
+    Пропавший из выдачи вопрос гасится active=false (не удаляется): телефон
+    узнаёт о снятии обычной синхронизацией.
+    """
+
+    __tablename__ = "audit_questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    uuid: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    text: Mapped[str] = mapped_column(Text, default="")
+    # string | number | bool
+    answer_type: Mapped[str] = mapped_column(String(16), default="string")
+    sort_order: Mapped[int] = mapped_column(Integer, default=100)
+    required: Mapped[bool] = mapped_column(Boolean, default=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+
+class Audit(Base, Timestamped):
+    """Пройденный агентом аудит точки — буфер на отправку в УТ.
+
+    Автор — телефон, поэтому ключ идемпотентности client_uid (uuid прохода
+    аудита). Ответы — в дочерней таблице. `pushed` — отметка обратного канала:
+    непереданный в УТ аудит заберёт push_to_ut. Хранится и после отправки:
+    аудит — не транзит, а факт визита; но повторно в УТ не шлём.
+    """
+
+    __tablename__ = "audits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_uid: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    agent_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    date: Mapped[datetime.date] = mapped_column(Date, index=True)
+    pushed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+    customer: Mapped["Customer"] = relationship()
+    agent: Mapped["User | None"] = relationship()
+    answers: Mapped[list["AuditAnswer"]] = relationship(
+        back_populates="audit", cascade="all, delete-orphan")
+
+
+class AuditAnswer(Base):
+    """Ответ на один вопрос в рамках одного аудита.
+
+    Ссылается на вопрос uuid'ом УТ, а не FK на audit_questions: вопрос могли
+    деактивировать между прохождением и отправкой, а ответ терять нельзя — в УТ
+    он всё равно ляжет по uuid вопроса.
+    """
+
+    __tablename__ = "audit_answers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    audit_id: Mapped[int] = mapped_column(
+        ForeignKey("audits.id", ondelete="CASCADE"), index=True)
+    question_uuid: Mapped[str] = mapped_column(String(36), index=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+
+    audit: Mapped["Audit"] = relationship(back_populates="answers")
+
+
 # --- акции -------------------------------------------------------------------
 
 class Promotion(Base, Timestamped):
