@@ -33,6 +33,7 @@ from sqlalchemy import select  # noqa: E402  (после load_dotenv — чит�
 from sqlalchemy.orm import Session  # noqa: E402
 
 from . import ut_client  # noqa: E402
+from .auth import check_secret, hash_secret  # noqa: E402
 from .db import SessionLocal, engine  # noqa: E402
 from .models import (  # noqa: E402
     Base, Customer, Organization, Price, PriceType, Product, ProductCategory,
@@ -237,12 +238,47 @@ def _принять_агентов(session: Session) -> None:
         п = агенты.get(uid)
         if п is None:
             п = User(
-                uuid=uid, login=uid, password_hash="", role="agent",
-                must_change_password=True)
+                uuid=uid, login=uid, full_name="", password_hash="",
+                role="agent", must_change_password=True)
             session.add(п)
             агенты[uid] = п
         п.full_name = э.get("name", "") or п.full_name
         п.active = bool(э.get("active", True))
+
+    # Онбординг: логин и временный пароль агента заданы в УТ и приходят в
+    # agent_accounts. УТ ведущий — при расхождении пароль/логин перезаписываем.
+    # Хеш ставим, только когда присланный пароль не совпадает с хранимым, иначе
+    # каждый обмен менял бы соль без нужды.
+    #
+    # Логин приводим к нижнему регистру: аутентификация (auth.find_user) и
+    # заведение в кабинете (main) ищут/пишут login в lower(), иначе агент с
+    # заглавной буквой в логине не войдёт. Логин уникален — чужой логин не
+    # занимаем (иначе UNIQUE-нарушение уронило бы весь раздel), а логируем.
+    занятые = {п.login: uid for uid, п in агенты.items()}
+    for э in данные.get("agent_accounts", []):
+        uid = э.get("uid")
+        if not uid:
+            continue
+        п = агенты.get(uid)
+        if п is None:
+            п = User(
+                uuid=uid, login=uid, full_name="", password_hash="",
+                role="agent", must_change_password=True)
+            session.add(п)
+            агенты[uid] = п
+            занятые[п.login] = uid
+        логин = (э.get("login") or "").strip().lower()
+        if логин and п.login != логин:
+            хозяин = занятые.get(логин)
+            if хозяин is not None and хозяин != uid:
+                log.warning("логин «%s» уже занят другим агентом — пропущен", логин)
+            else:
+                занятые.pop(п.login, None)
+                п.login = логин
+                занятые[логин] = uid
+        пароль = э.get("password") or ""
+        if пароль and not check_secret(пароль, п.password_hash):
+            п.password_hash = hash_secret(пароль)
 
     session.commit()
 
