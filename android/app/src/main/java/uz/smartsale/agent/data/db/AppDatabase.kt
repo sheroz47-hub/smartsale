@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TaskPhotoEntity::class, LocationEntity::class,
         AuditQuestionEntity::class, AuditEntity::class, AuditAnswerEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -210,6 +210,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v7 → v8: поля доставки в заказе (время/адрес/ЛПР/способ). Только
+        // ALTER таблицы orders — неотправленные заказы сохраняются.
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `deliveryTimeFrom` " +
+                    "TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `deliveryTimeTo` " +
+                    "TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `deliveryAddress` " +
+                    "TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `contactName` " +
+                    "TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `contactPhone` " +
+                    "TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `deliveryMethod` " +
+                    "TEXT NOT NULL DEFAULT 'to_client'")
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, AppDatabase::class.java, "smartsale.db"
@@ -218,7 +237,7 @@ abstract class AppDatabase : RoomDatabase() {
                 // пересборка здесь не годится: в базе лежат неотправленные
                 // заказы, и потерять их — потерять день работы агента.
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build()
                 .also { instance = it }
         }

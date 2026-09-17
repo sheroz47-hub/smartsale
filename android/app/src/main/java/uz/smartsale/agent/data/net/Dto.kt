@@ -231,6 +231,12 @@ data class OrderDto(
     val date: String,
     @SerialName("delivery_date") val deliveryDate: String? = null,
     @SerialName("payment_type") val paymentType: String,
+    @SerialName("delivery_time_from") val deliveryTimeFrom: String = "",
+    @SerialName("delivery_time_to") val deliveryTimeTo: String = "",
+    @SerialName("delivery_address") val deliveryAddress: String = "",
+    @SerialName("contact_name") val contactName: String = "",
+    @SerialName("contact_phone") val contactPhone: String = "",
+    @SerialName("delivery_method") val deliveryMethod: String = "to_client",
     val comment: String = "",
     val lines: List<OrderLineDto>,
 )

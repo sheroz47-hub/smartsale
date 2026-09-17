@@ -169,6 +169,12 @@ class Repository(private val context: Context) {
                         date = заказ.date,
                         deliveryDate = заказ.deliveryDate,
                         paymentType = заказ.paymentType,
+                        deliveryTimeFrom = заказ.deliveryTimeFrom,
+                        deliveryTimeTo = заказ.deliveryTimeTo,
+                        deliveryAddress = заказ.deliveryAddress,
+                        contactName = заказ.contactName,
+                        contactPhone = заказ.contactPhone,
+                        deliveryMethod = заказ.deliveryMethod,
                         comment = заказ.comment,
                         lines = documents.linesOf(заказ.clientUid).map {
                             OrderLineDto(it.productUuid, it.qty, it.price, it.discountPercent)
@@ -442,6 +448,12 @@ class Repository(private val context: Context) {
         deliveryDate: String,
         lines: List<OrderLineEntity>,
         amount: BigDecimal,
+        deliveryTimeFrom: String = "",
+        deliveryTimeTo: String = "",
+        deliveryAddress: String = "",
+        contactName: String = "",
+        contactPhone: String = "",
+        deliveryMethod: String = "to_client",
     ): String = withContext(Dispatchers.IO) {
         val uid = UUID.randomUUID().toString()
         db.documents().saveOrder(
@@ -452,6 +464,12 @@ class Repository(private val context: Context) {
                 date = today(),
                 deliveryDate = deliveryDate,
                 paymentType = paymentType,
+                deliveryTimeFrom = deliveryTimeFrom,
+                deliveryTimeTo = deliveryTimeTo,
+                deliveryAddress = deliveryAddress,
+                contactName = contactName,
+                contactPhone = contactPhone,
+                deliveryMethod = deliveryMethod,
                 comment = comment,
                 amount = amount.toPlainString(),
                 createdAt = System.currentTimeMillis(),

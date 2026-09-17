@@ -118,6 +118,12 @@ def _отправить_заказы(session: Session) -> int:
                 "date": заказ.date.isoformat(),
                 "delivery_date": (заказ.delivery_date.isoformat()
                                   if заказ.delivery_date else ""),
+                "delivery_time_from": заказ.delivery_time_from,
+                "delivery_time_to": заказ.delivery_time_to,
+                "delivery_address": заказ.delivery_address,
+                "contact_name": заказ.contact_name,
+                "contact_phone": заказ.contact_phone,
+                "delivery_method": заказ.delivery_method,
                 "comment": заказ.comment,
                 "lines": строки,
             })

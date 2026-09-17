@@ -64,6 +64,15 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
     val корзина by vm.cart.collectAsState()
     val цены by vm.pricedCart.collectAsState()
 
+    // Доставка: агент уточняет при заказе. Адрес по умолчанию — адрес клиента
+    // (ключ по uuid: при смене клиента подставится его адрес заново).
+    var адресДоставки by remember(клиент?.uuid) { mutableStateOf(клиент?.address.orEmpty()) }
+    var времяС by remember { mutableStateOf("") }
+    var времяПо by remember { mutableStateOf("") }
+    var контактИмя by remember { mutableStateOf("") }
+    var контактТелефон by remember { mutableStateOf("") }
+    var способДоставки by remember { mutableStateOf("to_client") }
+
     val поток: Flow<List<CatalogRow>> = remember(поиск, клиент?.uuid) { vm.catalog(поиск) }
     val товары by поток.collectAsState(initial = emptyList())
 
@@ -118,6 +127,51 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
                         Text("Изменить дату")
                     }
                 }
+                // Доставка: адрес (по умолчанию адрес клиента), окно времени,
+                // ЛПР (кто примет + телефон) и способ доставки.
+                OutlinedTextField(
+                    value = адресДоставки, onValueChange = { адресДоставки = it },
+                    label = { Text("Адрес доставки") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                )
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = времяС, onValueChange = { времяС = it },
+                        label = { Text("Время с (ЧЧ:ММ)") }, singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = времяПо, onValueChange = { времяПо = it },
+                        label = { Text("по") }, singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = контактИмя, onValueChange = { контактИмя = it },
+                        label = { Text("Кто примет") }, singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = контактТелефон, onValueChange = { контактТелефон = it },
+                        label = { Text("Телефон") }, singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Доставка: ${способДоставкиНазвание(способДоставки)}",
+                        modifier = Modifier.weight(1f))
+                    TextButton(onClick = {
+                        способДоставки = when (способДоставки) {
+                            "to_client" -> "pickup"
+                            "pickup" -> "courier"
+                            else -> "to_client"
+                        }
+                    }) { Text("Сменить") }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = onBack, modifier = Modifier.weight(1f)) {
                         Text("Отмена")
@@ -146,6 +200,12 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
                         paymentType = клиент?.paymentType ?: "cash",
                         comment = примечание,
                         deliveryDate = датаОтгрузки,
+                        deliveryTimeFrom = времяС.trim(),
+                        deliveryTimeTo = времяПо.trim(),
+                        deliveryAddress = адресДоставки.trim(),
+                        contactName = контактИмя.trim(),
+                        contactPhone = контактТелефон.trim(),
+                        deliveryMethod = способДоставки,
                         onDone = onDone,
                     )
                 },
@@ -193,6 +253,13 @@ private fun миллисВдату(миллисUTC: Long): String {
     val формат = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     формат.timeZone = TimeZone.getTimeZone("UTC")
     return формат.format(Date(миллисUTC))
+}
+
+/** Человекочитаемое название способа доставки. */
+private fun способДоставкиНазвание(код: String): String = when (код) {
+    "pickup" -> "Самовывоз"
+    "courier" -> "Курьер"
+    else -> "До клиента"
 }
 
 /** Просмотр полного заказа перед отправкой: позиции со скидкой, бонусы, итог. */

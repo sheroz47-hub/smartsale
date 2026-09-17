@@ -377,6 +377,12 @@ class ЗаказСТелефона(BaseModel):
     date: date
     delivery_date: date | None = None
     payment_type: str = "cash"
+    delivery_time_from: str = ""
+    delivery_time_to: str = ""
+    delivery_address: str = ""
+    contact_name: str = ""
+    contact_phone: str = ""
+    delivery_method: str = "to_client"
     comment: str = ""
     lines: list[СтрокаЗаказа]
 
@@ -476,6 +482,21 @@ def push(пакет: ПакетОтправки, device: Device = Depends(curren
     return результат
 
 
+_ВРЕМЯ_ОКНА = re.compile(r"^\d{1,2}:\d{2}$")
+
+
+def _окно(значение: str) -> str:
+    """Время «ЧЧ:ММ» или пусто. Мусор/не тот формат → пусто: узкая колонка
+    (5 символов) иначе переполнилась бы и уронила весь пакет приёма."""
+    з = (значение or "").strip()
+    return з if _ВРЕМЯ_ОКНА.match(з) else ""
+
+
+def _метод_доставки(значение: str) -> str:
+    """Способ доставки из белого списка (иначе — «до клиента»)."""
+    return значение if значение in ("to_client", "pickup", "courier") else "to_client"
+
+
 def _принять_заказ(session: Session, агент: User, данные: ЗаказСТелефона) -> dict:
     существующий = session.scalar(
         select(Order).where(Order.client_uid == данные.client_uid))
@@ -504,6 +525,15 @@ def _принять_заказ(session: Session, агент: User, данные:
         date=данные.date,
         delivery_date=данные.delivery_date,
         payment_type=данные.payment_type,
+        # Обрезаем под ширину колонок: свободный ввод с телефона иначе даёт
+        # «value too long» на flush и роняет весь пакет приёма (заказы,
+        # оплаты, визиты — один commit), а телефон повторяет его без конца.
+        delivery_time_from=_окно(данные.delivery_time_from),
+        delivery_time_to=_окно(данные.delivery_time_to),
+        delivery_address=данные.delivery_address.strip()[:500],
+        contact_name=данные.contact_name.strip()[:128],
+        contact_phone=данные.contact_phone.strip()[:32],
+        delivery_method=_метод_доставки(данные.delivery_method),
         comment=данные.comment,
         source="mobile",
         status="new",

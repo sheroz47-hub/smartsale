@@ -382,6 +382,9 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun saveOrder(paymentType: String, comment: String, deliveryDate: String,
+                  deliveryTimeFrom: String = "", deliveryTimeTo: String = "",
+                  deliveryAddress: String = "", contactName: String = "",
+                  contactPhone: String = "", deliveryMethod: String = "to_client",
                   onDone: () -> Unit) =
         viewModelScope.launch {
             val клиент = _currentCustomer.value ?: return@launch
@@ -456,7 +459,10 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
             val склад = db.catalog().warehouses().firstOrNull()?.uuid
 
             repository.saveOrder(клиент.uuid, склад, paymentType, comment,
-                deliveryDate, строки, цены.total)
+                deliveryDate, строки, цены.total,
+                deliveryTimeFrom = deliveryTimeFrom, deliveryTimeTo = deliveryTimeTo,
+                deliveryAddress = deliveryAddress, contactName = contactName,
+                contactPhone = contactPhone, deliveryMethod = deliveryMethod)
             _cart.value = emptyList()
             _message.value = "Заказ записан и уйдёт при первой связи"
             onDone()

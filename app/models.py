@@ -591,6 +591,18 @@ class Order(Base, Timestamped):
     delivery_date: Mapped[datetime.date | None] = mapped_column(Date, index=True)
     payment_type: Mapped[str] = mapped_column(String(16), default="cash")
 
+    # --- доставка (агент договаривается при заказе) -------------------------
+    # Желаемое окно времени доставки, «ЧЧ:ММ» строками (пусто — не задано).
+    delivery_time_from: Mapped[str] = mapped_column(String(5), default="")
+    delivery_time_to: Mapped[str] = mapped_column(String(5), default="")
+    # Адрес доставки: по умолчанию адрес клиента, агент может уточнить.
+    delivery_address: Mapped[str] = mapped_column(String(500), default="")
+    # ЛПР — кто примет товар в точке (имя + телефон).
+    contact_name: Mapped[str] = mapped_column(String(128), default="")
+    contact_phone: Mapped[str] = mapped_column(String(32), default="")
+    # Способ доставки: to_client (по умолчанию) / pickup / courier.
+    delivery_method: Mapped[str] = mapped_column(String(16), default="to_client")
+
     status: Mapped[str] = mapped_column(String(16), default="new", index=True)
     amount: Mapped[Decimal] = mapped_column(Money, default=Decimal(0))
     discount_amount: Mapped[Decimal] = mapped_column(Money, default=Decimal(0))
