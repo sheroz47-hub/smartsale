@@ -20,6 +20,7 @@
 import logging
 import os
 import sys
+from collections import defaultdict
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 
@@ -37,7 +38,8 @@ from .auth import check_secret, hash_secret  # noqa: E402
 from .db import SessionLocal, engine  # noqa: E402
 from .models import (  # noqa: E402
     Base, Customer, Organization, Price, PriceType, Product, ProductCategory,
-    Promotion, PromotionProduct, PromotionThreshold, Stock, User, Warehouse,
+    Promotion, PromotionProduct, PromotionThreshold, Route, RouteStop, Stock,
+    User, Warehouse,
 )
 
 log = logging.getLogger("sync_from_ut")
@@ -319,6 +321,62 @@ def _принять_клиентов(session: Session) -> None:
     session.commit()
 
 
+def _принять_маршруты(session: Session) -> None:
+    """Маршруты агентов из УТ (meta.agent_routes): агент → день недели →
+    клиенты с порядком. Пересобираем Route/RouteStop целиком: УТ ведущий.
+    Маршрут — на пару (агент, день); пропавшие из УТ гасим (active=false),
+    чтобы снятая точка не осталась на телефоне.
+    """
+    данные = ut_client.получить("meta")
+    агенты = {п.uuid: п.id for п in session.scalars(select(User)).all()}
+    клиенты = {к.uuid: к.id for к in session.scalars(select(Customer)).all()}
+
+    группы: dict[tuple[int, int], list[tuple[int, int]]] = defaultdict(list)
+    for р in данные.get("agent_routes", []):
+        агент_id = агенты.get(р.get("agent_uid"))
+        клиент_id = клиенты.get(р.get("customer_uid"))
+        if агент_id is None or клиент_id is None:
+            continue
+        день = int(_dec(р.get("weekday")))
+        if день < 1 or день > 7:
+            continue
+        группы[(агент_id, день)].append((клиент_id, int(_dec(р.get("sort_order")))))
+
+    маршруты = {(м.agent_id, м.weekday): м
+                for м in session.scalars(select(Route)).all()}
+    виденные = set()
+    for (агент_id, день), точки in группы.items():
+        м = маршруты.get((агент_id, день))
+        if м is None:
+            м = Route(agent_id=агент_id, weekday=день, name=f"День {день}",
+                      active=True)
+            session.add(м)
+            session.flush()
+            маршруты[(агент_id, день)] = м
+        else:
+            м.active = True
+        # Точки маршрута переписываем целиком. flush ПОСЛЕ clear обязателен:
+        # без него SQLAlchemy на commit вставит новые RouteStop раньше, чем
+        # удалит старые, и та же пара (маршрут, клиент) нарушит UNIQUE —
+        # раздел падал бы на каждом повторном обмене.
+        м.stops.clear()
+        session.flush()
+        for клиент_id, порядок in точки:
+            м.stops.append(RouteStop(customer_id=клиент_id, sort_order=порядок))
+        виденные.add((агент_id, день))
+
+    # Гасим пропавшие маршруты ТОЛЬКО если из УТ реально пришли данные: пустой
+    # agent_routes (нет прав на регистр, сбой) иначе молча снёс бы все маршруты
+    # с телефонов.
+    if данные.get("agent_routes"):
+        for ключ, м in маршруты.items():
+            if ключ not in виденные and м.active:
+                м.active = False
+                м.stops.clear()
+
+    session.commit()
+
+
 def _принять_акции(session: Session) -> None:
     элементы = ut_client.получить_список("promotions")
     пришедшие = {э["uid"] for э in элементы if э.get("uid")}
@@ -379,6 +437,7 @@ def _принять_акции(session: Session) -> None:
     ("остатки", _принять_остатки),
     ("агенты", _принять_агентов),
     ("клиенты", _принять_клиентов),
+    ("маршруты", _принять_маршруты),
     ("акции", _принять_акции),
 )
 
