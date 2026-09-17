@@ -218,6 +218,35 @@ def _принять_остатки(session: Session) -> None:
     session.commit()
 
 
+def _принять_агентов(session: Session) -> None:
+    """Агенты — из менеджеров УТ (/meta managers). uuid агента SmartSale = uid
+    пользователя УТ, по нему клиент цепляется к агенту (основной менеджер).
+
+    Логин и пароль УТ не отдаёт, а войти в приложение агенту нужно по ним.
+    Поэтому при СОЗДАНИИ ставим логин = uid (уникален, администратор
+    переименует в кабинете) и пустой пароль — вход заблокирован, пока админ не
+    задаст пароль. На обновлении логин/пароль/роль НЕ трогаем: их ведёт кабинет.
+    """
+    данные = ut_client.получить("meta")
+    агенты = _карта(session, User)
+
+    for э in данные.get("managers", []):
+        uid = э.get("uid")
+        if not uid:
+            continue
+        п = агенты.get(uid)
+        if п is None:
+            п = User(
+                uuid=uid, login=uid, password_hash="", role="agent",
+                must_change_password=True)
+            session.add(п)
+            агенты[uid] = п
+        п.full_name = э.get("name", "") or п.full_name
+        п.active = bool(э.get("active", True))
+
+    session.commit()
+
+
 def _принять_клиентов(session: Session) -> None:
     виды = {в.uuid: в.id for в in session.scalars(select(PriceType)).all()}
     агенты = {п.uuid: п.id for п in session.scalars(select(User)).all()}
@@ -311,6 +340,7 @@ def _принять_акции(session: Session) -> None:
     ("товары и категории", _принять_товары),
     ("цены", _принять_цены),
     ("остатки", _принять_остатки),
+    ("агенты", _принять_агентов),
     ("клиенты", _принять_клиентов),
     ("акции", _принять_акции),
 )
