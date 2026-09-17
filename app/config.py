@@ -30,3 +30,15 @@ REQUIRE_VISIT_GPS = os.getenv("REQUIRE_VISIT_GPS", "0") == "1"
 
 # Сколько записей на сущность отдаётся за один запрос синхронизации.
 SYNC_PAGE_SIZE = int(os.getenv("SYNC_PAGE_SIZE", "1000"))
+
+# --- обмен с УТ (приём справочников) -----------------------------------------
+# SmartSale ходит в HTTP-сервис расширения УТ и забирает справочники и акции.
+# Каталог SmartSale — производный от УТ: uuid сущности = uid ссылки в 1С.
+# Аутентификация двойная: Basic веб-сервера публикации (логин 1С в UTF-8) плюс
+# наш токен заголовком X-SmartSale-Token.
+UT_BASE_URL = os.getenv("UT_BASE_URL", "")
+UT_LOGIN = os.getenv("UT_LOGIN", "")
+UT_PASSWORD = os.getenv("UT_PASSWORD", "")
+UT_TOKEN = os.getenv("UT_TOKEN", "")
+# Таймаут одного запроса к УТ, секунд.
+UT_TIMEOUT = int(os.getenv("UT_TIMEOUT", "60"))

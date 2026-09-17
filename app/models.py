@@ -663,3 +663,85 @@ class Counter(Base):
 
     name: Mapped[str] = mapped_column(String(32), primary_key=True)
     value: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# --- акции -------------------------------------------------------------------
+
+class Promotion(Base, Timestamped):
+    """Условие акции, настроенное в УТ.
+
+    Считает акции движок приложения при наборе заказа, здесь — только условия,
+    принятые из УТ (метод /promotions расширения). uuid = uid справочника
+    SmartSale_Акции в 1С: приём — upsert по uuid, как у прочих справочников.
+
+    Механика (`mechanic`): percent — процент на товары; volume — ступенчатая
+    скидка от объёма (пороги); bonus — купи N — получи M бесплатно. Товары и
+    пороги вынесены в отдельные таблицы. Сегмент клиента (`segment_uuid`) —
+    uid сегмента УТ, пусто = всем; сопоставление клиента сегменту появится
+    вместе с выгрузкой сегментов.
+
+    Акции приходят полным списком активных. Пропавшая из выдачи акция гасится
+    флагом active=false, а не удаляется: телефон должен узнать об отмене через
+    обычную синхронизацию, а не по молчанию.
+    """
+
+    __tablename__ = "promotions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    uuid: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), default="")
+    # percent | volume | bonus
+    mechanic: Mapped[str] = mapped_column(String(16), default="", index=True)
+    date_from: Mapped[datetime.date | None] = mapped_column(Date)
+    date_to: Mapped[datetime.date | None] = mapped_column(Date)
+    # uid сегмента партнёров УТ; пусто — акция для всех клиентов.
+    segment_uuid: Mapped[str] = mapped_column(String(36), default="")
+    priority: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Для механики percent.
+    percent: Mapped[Decimal] = mapped_column(Percent, default=Decimal(0))
+    # Для механики bonus: купить N товаров условия → M бонусного товара.
+    buy_qty: Mapped[Decimal] = mapped_column(Qty, default=Decimal(0))
+    bonus_product_uuid: Mapped[str] = mapped_column(String(36), default="")
+    bonus_qty: Mapped[Decimal] = mapped_column(Qty, default=Decimal(0))
+
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+    products: Mapped[list["PromotionProduct"]] = relationship(
+        back_populates="promotion", cascade="all, delete-orphan")
+    thresholds: Mapped[list["PromotionThreshold"]] = relationship(
+        back_populates="promotion", cascade="all, delete-orphan")
+
+
+class PromotionProduct(Base):
+    """Товар (или группа) — область действия акции.
+
+    Хранится uid УТ и признак группы, а не ссылка на products: элемент может
+    быть группой номенклатуры (в products её нет — она приходит категорией),
+    и раскрывает группу движок приложения по своему каталогу.
+    """
+
+    __tablename__ = "promotion_products"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey("promotions.id", ondelete="CASCADE"), index=True)
+    product_uuid: Mapped[str] = mapped_column(String(36), index=True)
+    is_group: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    promotion: Mapped["Promotion"] = relationship(back_populates="products")
+
+
+class PromotionThreshold(Base):
+    """Ступень объёмной акции: от порога по количеству/сумме — свой процент."""
+
+    __tablename__ = "promotion_thresholds"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey("promotions.id", ondelete="CASCADE"), index=True)
+    min_qty: Mapped[Decimal] = mapped_column(Qty, default=Decimal(0))
+    min_sum: Mapped[Decimal] = mapped_column(Money, default=Decimal(0))
+    percent: Mapped[Decimal] = mapped_column(Percent, default=Decimal(0))
+
+    promotion: Mapped["Promotion"] = relationship(back_populates="thresholds")

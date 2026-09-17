@@ -34,7 +34,8 @@ from .config import CURRENCY, REQUIRE_VISIT_GPS, SYNC_PAGE_SIZE
 from .db import get_session
 from .models import (
     Customer, Device, Order, OrderLine, Payment, Price, PriceType, Product,
-    ProductCategory, Route, RouteStop, Stock, SyncLog, User, Visit, Warehouse,
+    ProductCategory, Promotion, Route, RouteStop, Stock, SyncLog, User, Visit,
+    Warehouse,
 )
 
 log = logging.getLogger("api")
@@ -202,13 +203,18 @@ def pull(request: Request, since: str = "",
 
     маршруты = изменённые(Route, select(Route).where(Route.agent_id == агент.id))
 
+    # Акции — условия для движка скидок на телефоне. Приходят всем агентам
+    # одинаково (отбор по клиенту/сегменту делает движок при наборе заказа).
+    # Отданные с active=false — погашенные: телефон обязан их убрать.
+    акции = изменённые(Promotion)
+
     ответ = {
         "server_time": _момент(серверное_время),
         "protocol": PROTOCOL,
         # Признак того, что выдача упёрлась в размер страницы: телефон должен
         # сразу повторить запрос с новым since, не дожидаясь расписания.
         "more": any(len(x) >= SYNC_PAGE_SIZE
-                    for x in (товары, клиенты, категории)),
+                    for x in (товары, клиенты, категории, акции)),
         "warehouses": [{
             "uuid": с.uuid, "code": с.code, "name": с.name, "active": с.active,
         } for с in склады],
@@ -258,6 +264,24 @@ def pull(request: Request, since: str = "",
                 "customer_uuid": т.customer.uuid, "sort_order": т.sort_order,
             } for т in м.stops],
         } for м in маршруты],
+        "promotions": [{
+            "uuid": а.uuid, "name": а.name, "mechanic": а.mechanic,
+            "date_from": а.date_from.isoformat() if а.date_from else "",
+            "date_to": а.date_to.isoformat() if а.date_to else "",
+            "segment_uuid": а.segment_uuid, "priority": а.priority,
+            "percent": _число(а.percent),
+            "buy_qty": _число(а.buy_qty),
+            "bonus_product_uuid": а.bonus_product_uuid,
+            "bonus_qty": _число(а.bonus_qty),
+            "active": а.active,
+            "products": [{
+                "uuid": т.product_uuid, "is_group": т.is_group,
+            } for т in а.products],
+            "thresholds": [{
+                "min_qty": _число(п.min_qty), "min_sum": _число(п.min_sum),
+                "percent": _число(п.percent),
+            } for п in а.thresholds],
+        } for а in акции],
     }
 
     device.last_pull = серверное_время
