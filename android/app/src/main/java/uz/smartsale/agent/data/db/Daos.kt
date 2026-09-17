@@ -186,6 +186,120 @@ interface DocumentDao {
 }
 
 @Dao
+interface TaskDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(task: TaskEntity)
+
+    @Query("SELECT * FROM tasks WHERE uuid = :uuid")
+    suspend fun byUuid(uuid: String): TaskEntity?
+
+    /** Обновить только поля, ведомые УТ, не трогая локальное выполнение. */
+    @Query(
+        """
+        UPDATE tasks SET customerUuid = :customerUuid, date = :date,
+                         text = :text, active = :active
+        WHERE uuid = :uuid
+        """
+    )
+    suspend fun refreshFromServer(
+        uuid: String, customerUuid: String?, date: String, text: String,
+        active: Boolean,
+    )
+
+    /**
+     * Приём заданий с сервера. Локально выполненное, но ещё не отправленное
+     * задание (done && !synced) не перезаписываем целиком — иначе отчёт агента
+     * пропал бы до отправки в УТ; обновляем у него лишь поля из УТ.
+     */
+    @Transaction
+    suspend fun applyFromServer(items: List<TaskEntity>) {
+        for (t in items) {
+            val местное = byUuid(t.uuid)
+            if (местное != null && местное.done && !местное.synced) {
+                refreshFromServer(t.uuid, t.customerUuid, t.date, t.text, t.active)
+            } else {
+                insert(t)
+            }
+        }
+    }
+
+    /** Задания к исполнению у клиента: активные и невыполненные. */
+    @Query(
+        """
+        SELECT * FROM tasks
+        WHERE customerUuid = :customerUuid AND active = 1 AND done = 0
+        ORDER BY date
+        """
+    )
+    fun forCustomer(customerUuid: String): Flow<List<TaskEntity>>
+
+    /** Отметить выполнение локально: уйдёт в очередь отправки. */
+    @Query(
+        """
+        UPDATE tasks SET done = 1, doneAt = :doneAt, comment = :comment,
+                         synced = 0, error = '' WHERE uuid = :uuid
+        """
+    )
+    suspend fun markDoneLocal(uuid: String, doneAt: String, comment: String)
+
+    @Query("SELECT * FROM tasks WHERE done = 1 AND synced = 0")
+    suspend fun pendingCompletions(): List<TaskEntity>
+
+    @Query("UPDATE tasks SET synced = 1, error = '' WHERE uuid = :uuid")
+    suspend fun markSent(uuid: String)
+
+    /**
+     * Отказ сервера в отметке — терминальный: ставим synced = 1, чтобы задание
+     * ушло из очереди отправки (иначе pendingCompletions гоняло бы его вечно).
+     *
+     * У задания, в отличие от заказа, отказы сервера постоянные по существу:
+     * «задание не найдено» и «назначено другому агенту» повтором не лечатся, а
+     * своего задания сервер этому агенту в /pull больше не отдаёт — active =
+     * false до него не доедет. Транзиентные сбои сюда не попадают: обрыв связи
+     * рвётся до формирования per-task результата и ловится выше. error
+     * сохраняем для разбора; done остаётся 1 — карточка клиента задание больше
+     * не показывает.
+     */
+    @Query("UPDATE tasks SET synced = 1, error = :error WHERE uuid = :uuid")
+    suspend fun markRejected(uuid: String, error: String)
+}
+
+@Dao
+interface MediaDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPhoto(photo: TaskPhotoEntity)
+
+    @Query("SELECT * FROM task_photos WHERE synced = 0 ORDER BY createdAt")
+    suspend fun pendingPhotos(): List<TaskPhotoEntity>
+
+    /** Сколько фото уже прикреплено к заданию — для показа агенту в диалоге. */
+    @Query("SELECT COUNT(*) FROM task_photos WHERE taskUuid = :taskUuid")
+    fun photoCount(taskUuid: String): Flow<Int>
+
+    @Query("UPDATE task_photos SET synced = 1, error = '' WHERE uuid = :uuid")
+    suspend fun markPhotoSent(uuid: String)
+
+    /** Терминальный отказ сервера (4xx): снимаем с очереди, причину сохраняем.
+     *  Сетевой сбой сюда НЕ попадает — фото остаётся synced=0 и повторится. */
+    @Query("UPDATE task_photos SET synced = 1, error = :error WHERE uuid = :uuid")
+    suspend fun markPhotoFailed(uuid: String, error: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocation(location: LocationEntity)
+
+    @Query("SELECT * FROM pending_locations WHERE synced = 0")
+    suspend fun pendingLocations(): List<LocationEntity>
+
+    @Query("UPDATE pending_locations SET synced = 1, error = '' WHERE customerUuid = :uuid")
+    suspend fun markLocationSent(uuid: String)
+
+    @Query("UPDATE pending_locations SET synced = 1, error = :error WHERE customerUuid = :uuid")
+    suspend fun markLocationFailed(uuid: String, error: String)
+}
+
+@Dao
 interface PromotionDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

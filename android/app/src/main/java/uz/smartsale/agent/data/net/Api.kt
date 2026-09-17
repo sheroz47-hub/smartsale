@@ -4,6 +4,9 @@ import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody
+import okhttp3.ResponseBody
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.Body
@@ -22,6 +25,20 @@ interface SmartSaleApi {
 
     @POST("api/v1/sync/push")
     suspend fun push(@Body request: PushRequest): PushResponse
+
+    /**
+     * Загрузка одного фото к заданию. Тело запроса — байты jpeg. Ответ берём
+     * сырым (ResponseBody), НЕ разбирая тело: телефону важен только код —
+     * по нему различаем постоянный отказ (4xx — снять с очереди) и временный
+     * сбой (5xx/сеть — повторить). Разбор тела успеха мог бы бросить на пустом
+     * или неожиданном ответе, и успех ошибочно принялся бы за сбой.
+     */
+    @POST("api/v1/task_photo")
+    suspend fun uploadTaskPhoto(
+        @Query("task") task: String,
+        @Query("name") name: String,
+        @Body body: RequestBody,
+    ): Response<ResponseBody>
 
     @GET("api/v1/ping")
     suspend fun ping(): Map<String, String>

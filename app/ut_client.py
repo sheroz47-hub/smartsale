@@ -150,3 +150,45 @@ def отправить(путь: str, тело: dict, параметры: dict |
         raise ОшибкаУТ(f"{путь}: ожидался объект JSON")
 
     return разобранное
+
+
+def отправить_двоичные(путь: str, данные: bytes, параметры: dict | None = None,
+                       тип_содержимого: str = "image/jpeg") -> dict:
+    """POST бинарного тела (фото задания в /tasks/photo). Ответ — JSON-объект.
+
+    Отдельно от отправить(): тело — не JSON, а сами байты файла; метаданные
+    (задание, имя) уходят строкой запроса. Ошибки и авторизация — как у
+    отправить().
+    """
+    _проверить_настройки()
+
+    адрес = UT_BASE_URL.rstrip("/") + "/" + путь.lstrip("/")
+    if параметры:
+        адрес += "?" + urllib.parse.urlencode(параметры)
+
+    заголовки = dict(_заголовки())
+    заголовки["Content-Type"] = тип_содержимого
+    запрос = urllib.request.Request(адрес, data=данные, headers=заголовки, method="POST")
+
+    try:
+        with urllib.request.urlopen(запрос, timeout=UT_TIMEOUT) as ответ:
+            текст = ответ.read().decode("utf-8")
+    except urllib.error.HTTPError as ошибка:
+        подробность = ""
+        try:
+            подробность = ошибка.read().decode("utf-8", "replace")[:500]
+        except Exception:
+            pass
+        raise ОшибкаУТ(f"{путь}: HTTP {ошибка.code} {подробность}") from ошибка
+    except urllib.error.URLError as ошибка:
+        raise ОшибкаУТ(f"{путь}: нет связи с УТ ({ошибка.reason})") from ошибка
+
+    try:
+        разобранное = json.loads(текст)
+    except json.JSONDecodeError as ошибка:
+        raise ОшибкаУТ(f"{путь}: ответ не JSON") from ошибка
+
+    if not isinstance(разобранное, dict):
+        raise ОшибкаУТ(f"{путь}: ожидался объект JSON")
+
+    return разобранное

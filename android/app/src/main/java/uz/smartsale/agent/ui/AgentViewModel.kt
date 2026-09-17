@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import uz.smartsale.agent.data.PromotionEngine
@@ -15,8 +16,11 @@ import uz.smartsale.agent.data.Repository
 import uz.smartsale.agent.data.SyncResult
 import uz.smartsale.agent.data.db.CatalogRow
 import uz.smartsale.agent.data.db.CustomerEntity
+import uz.smartsale.agent.data.db.OrderEntity
 import uz.smartsale.agent.data.db.OrderLineEntity
+import uz.smartsale.agent.data.db.PaymentEntity
 import uz.smartsale.agent.data.понятноеСообщение
+import java.io.File
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.Calendar
@@ -45,6 +49,25 @@ data class BonusItem(
     val name: String,
     val qty: BigDecimal,
     val price: String,
+)
+
+/** Документ, открытый на просмотр (заказ/оплата), с готовыми к показу строками. */
+data class OpenedDoc(
+    val title: String,
+    val date: String,
+    val state: String,
+    val lines: List<DocLine>,
+    val total: String,
+    val note: String,
+)
+
+/** Строка открытого заказа. Числа — строками, форматирует их экран. */
+data class DocLine(
+    val name: String,
+    val qty: String,
+    val price: String,
+    val discountPercent: String,
+    val amount: String,
 )
 
 /** Корзина после расчёта акций движком: строки со скидками, бонусы, итог. */
@@ -104,6 +127,66 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
     val recentPayments = db.documents().recentPayments()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    // Открытый на просмотр документ (заказ/оплата). Экран «Отправленные»
+    // открывает его двойным кликом; строки заказа подтягиваются с именами
+    // товаров из каталога.
+    private val _openDoc = MutableStateFlow<OpenedDoc?>(null)
+    val openDoc = _openDoc.asStateFlow()
+
+    fun openOrder(order: OrderEntity) = viewModelScope.launch {
+        val строкиБД = db.documents().linesOf(order.clientUid)
+        val строки = строкиБД.map { л ->
+            val имя = db.catalog().product(л.productUuid)?.name ?: л.productUuid
+            val кол = дробьVM(л.qty)
+            val цена = дробьVM(л.price)
+            val процент = дробьVM(л.discountPercent)
+            val сумма = кол.multiply(цена)
+                .multiply(BigDecimal(100).subtract(процент))
+                .divide(BigDecimal(100))
+                .setScale(2, RoundingMode.HALF_UP)
+            DocLine(
+                name = имя,
+                qty = л.qty,
+                price = л.price,
+                discountPercent = л.discountPercent,
+                amount = сумма.toPlainString())
+        }
+        _openDoc.value = OpenedDoc(
+            title = if (order.serverNumber.isNotBlank())
+                "Заказ № ${order.serverNumber}" else "Заказ (не отправлен)",
+            date = order.date,
+            state = состояниеЗаказаVM(order),
+            lines = строки,
+            total = order.amount,
+            note = order.comment,
+        )
+    }
+
+    fun openPayment(payment: PaymentEntity) {
+        _openDoc.value = OpenedDoc(
+            title = if (payment.serverNumber.isNotBlank())
+                "Оплата № ${payment.serverNumber}" else "Оплата (не отправлена)",
+            date = payment.date,
+            state = if (payment.synced) "отправлена"
+                else if (payment.error.isNotBlank()) "ошибка" else "в очереди",
+            lines = emptyList(),
+            total = payment.amount,
+            note = payment.comment,
+        )
+    }
+
+    fun closeDoc() { _openDoc.value = null }
+
+    private fun состояниеЗаказаVM(з: OrderEntity): String = when {
+        !з.synced && з.error.isNotBlank() -> "ошибка: ${з.error}"
+        !з.synced -> "в очереди"
+        з.serverStatus.isNotBlank() -> з.serverStatus
+        else -> "отправлен"
+    }
+
+    private fun дробьVM(значение: String): BigDecimal =
+        значение.trim().replace(",", ".").toBigDecimalOrNull() ?: BigDecimal.ZERO
+
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
 
@@ -120,6 +203,15 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _currentCustomer = MutableStateFlow<CustomerEntity?>(null)
     val currentCustomer = _currentCustomer.asStateFlow()
+
+    /** Задания текущего клиента (открытые). Показываются в его карточке. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val currentTasks = _currentCustomer
+        .flatMapLatest { клиент ->
+            if (клиент == null) flowOf(emptyList())
+            else db.tasks().forCustomer(клиент.uuid)
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     /** Сумма корзины без скидок — для проверок; агенту показываем итог со
      *  скидками из [pricedCart]. */
@@ -359,7 +451,34 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
             _message.value = "Визит отмечен"
         }
 
+    fun completeTask(uuid: String, comment: String) = viewModelScope.launch {
+        repository.completeTask(uuid, comment)
+        _message.value = "Задание отмечено выполненным"
+        sync()
+    }
+
+    /** Прикрепить снимок к заданию: файл полного кадра из камеры, сжатие и
+     *  удаление временного файла делает Repository в фоне. */
+    fun addTaskPhoto(taskUuid: String, file: File) = viewModelScope.launch {
+        repository.addTaskPhoto(taskUuid, file)
+        _message.value = "Фото добавлено"
+    }
+
+    /** Поток числа прикреплённых к заданию фото — для диалога отметки. */
+    fun taskPhotoCount(taskUuid: String) = repository.taskPhotoCount(taskUuid)
+
+    /** Уточнить координаты текущего клиента «по кнопке». */
+    fun refineCustomerLocation(lat: Double, lon: Double) = viewModelScope.launch {
+        val клиент = _currentCustomer.value ?: return@launch
+        repository.refineLocation(клиент.uuid, lat, lon)
+        _message.value = "Координаты уточнены, уйдут при обмене"
+        sync()
+    }
+
     fun clearMessage() { _message.value = "" }
+
+    /** Показать агенту сообщение (напр. ошибку получения координат из UI). */
+    fun setMessage(text: String) { _message.value = text }
 
     private fun уточнить(ошибка: Throwable): String =
         if (ошибка.message.orEmpty().contains("адрес сервера")) "Укажите адрес сервера"

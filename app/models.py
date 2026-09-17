@@ -24,8 +24,8 @@ import uuid as uuid_lib
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, SmallInteger,
-    String, Text, UniqueConstraint, func,
+    Boolean, Date, DateTime, ForeignKey, Index, Integer, LargeBinary, Numeric,
+    SmallInteger, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -442,6 +442,98 @@ class Visit(Base, Timestamped):
 
     agent: Mapped["User"] = relationship()
     customer: Mapped["Customer"] = relationship()
+
+
+# --- задания -----------------------------------------------------------------
+
+class Task(Base, Timestamped):
+    """Задание агенту, поставленное в УТ.
+
+    Автор — УТ (справочник SmartSale_Задания): агент, клиент, дата, текст.
+    uuid = uid ссылки 1С, приём это upsert по uuid, как у справочников. Поля,
+    которые ставит агент при выполнении (done, done_at, comment), ведёт
+    SmartSale и приём из УТ их НЕ трогает — иначе повторный обмен затёр бы
+    отчёт агента.
+
+    Двусторонний обмен: выполнение возвращается в УТ (метод POST /tasks). Флаг
+    `done_pushed` — отметка обратного канала: выполненное, но ещё не
+    отправленное в УТ задание заберёт push_to_ut. Фото и локация клиента —
+    следующая фаза, здесь только текстовый комментарий.
+    """
+
+    __tablename__ = "tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    uuid: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    agent_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    customer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("customers.id"), index=True)
+    date: Mapped[datetime.date | None] = mapped_column(Date, index=True)
+    text: Mapped[str] = mapped_column(Text, default="")
+
+    # Выключатель со стороны УТ: пропавшее из выдачи задание гасим active=false,
+    # а не удаляем, чтобы телефон узнал о снятии обычной синхронизацией.
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+    # Ставит агент при выполнении.
+    done: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    done_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
+    comment: Mapped[str] = mapped_column(Text, default="")
+    # Отметка обратного канала: выполнение уже принято в УТ.
+    done_pushed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+    agent: Mapped["User | None"] = relationship()
+    customer: Mapped["Customer | None"] = relationship()
+
+
+class TaskPhoto(Base):
+    """Фотоотчёт к заданию — транзитный буфер на сервере-шине.
+
+    Хранилище фото — УТ (присоединённые файлы), сервер их у себя не держит:
+    строка живёт ровно от приёма с телефона до успешной отправки в УТ, после
+    чего удаляется (push_to_ut). Наличие строки = ещё не доставлено. `name` =
+    uuid снимка, он же имя файла в УТ, — ключ идемпотентности: повторная
+    доставка одного снимка (обрыв связи в поле) второй файл не создаёт.
+
+    Байты в BYTEA намеренно: фото транзитное, отдельный файловый слой на шине
+    заводить незачем, а в базе оно под тем же бэкапом и транзакцией, что и
+    очередь. Снимок сжимается на телефоне, так что вес умеренный.
+    """
+
+    __tablename__ = "task_photos"
+    __table_args__ = (
+        UniqueConstraint("task_uuid", "name", name="uq_task_photo"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_uuid: Mapped[str] = mapped_column(String(36), index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+
+class CustomerGeoPush(Base):
+    """Уточнённые агентом координаты клиента, ждущие отправки в УТ.
+
+    Координаты клиента ведёт УТ (контактная информация контрагента). Агент
+    уточняет их «по кнопке»; сервер сразу обновляет свою копию (Customer.lat/
+    lon), а сюда кладёт координаты для проталкивания в УТ. Наличие строки =
+    ещё не доставлено; ключ — клиент (одна актуальная точка на клиента),
+    поэтому PK по customer_uuid, повторное уточнение перезаписывает.
+    """
+
+    __tablename__ = "customer_geo_push"
+
+    customer_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    lat: Mapped[str] = mapped_column(String(32), default="")
+    lon: Mapped[str] = mapped_column(String(32), default="")
+    at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
 
 
 # --- заказы ------------------------------------------------------------------

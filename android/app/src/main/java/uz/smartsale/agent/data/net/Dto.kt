@@ -50,7 +50,18 @@ data class PullResponse(
     val stocks: List<StockDto> = emptyList(),
     val customers: List<CustomerDto> = emptyList(),
     val routes: List<RouteDto> = emptyList(),
+    val tasks: List<TaskDto> = emptyList(),
     val promotions: List<PromotionDto> = emptyList(),
+)
+
+@Serializable
+data class TaskDto(
+    val uuid: String,
+    @SerialName("customer_uuid") val customerUuid: String? = null,
+    val date: String = "",
+    val text: String = "",
+    val done: Boolean = false,
+    val active: Boolean = true,
 )
 
 @Serializable
@@ -163,6 +174,22 @@ data class PushRequest(
     val orders: List<OrderDto> = emptyList(),
     val payments: List<PaymentDto> = emptyList(),
     val visits: List<VisitDto> = emptyList(),
+    val tasks: List<TaskDoneDto> = emptyList(),
+    val locations: List<LocationDto> = emptyList(),
+)
+
+@Serializable
+data class TaskDoneDto(
+    val uuid: String,
+    @SerialName("done_at") val doneAt: String? = null,
+    val comment: String = "",
+)
+
+@Serializable
+data class LocationDto(
+    @SerialName("customer_uuid") val customerUuid: String,
+    val lat: String,
+    val lon: String,
 )
 
 @Serializable
@@ -213,8 +240,28 @@ data class PushResponse(
     val orders: List<PushResult> = emptyList(),
     val payments: List<PushResult> = emptyList(),
     val visits: List<PushResult> = emptyList(),
+    val tasks: List<TaskPushResult> = emptyList(),
+    val locations: List<GeoPushResult> = emptyList(),
     @SerialName("server_time") val serverTime: String = "",
 )
+
+@Serializable
+data class GeoPushResult(
+    @SerialName("customer_uuid") val customerUuid: String,
+    val status: String,
+    val error: String = "",
+) {
+    val accepted: Boolean get() = status == "accepted"
+}
+
+@Serializable
+data class TaskPushResult(
+    val uuid: String,
+    val status: String,
+    val error: String = "",
+) {
+    val accepted: Boolean get() = status == "accepted"
+}
 
 @Serializable
 data class PushResult(

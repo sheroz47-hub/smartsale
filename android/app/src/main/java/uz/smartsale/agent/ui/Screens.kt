@@ -9,13 +9,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -39,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import uz.smartsale.agent.data.db.CustomerEntity
 import uz.smartsale.agent.data.db.OrderEntity
 import uz.smartsale.agent.data.db.PaymentEntity
+import uz.smartsale.agent.data.db.TaskEntity
 import java.math.BigDecimal
 
 /** Суммы с разделителями разрядов: в сумах они длинные. */
@@ -225,7 +233,10 @@ private fun CustomerRow(клиент: CustomerEntity, onClick: () -> Unit) {
             .combinedClickable(onClick = {}, onDoubleClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // Пометка наличия координат: заполненная булавка цветом — точка
+            // привязана, бледная — координат нет (агенту стоит уточнить).
+            МаркерЛокации(клиент.lat != null, Modifier.padding(end = 6.dp))
             Text(клиент.name, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             TextButton(onClick = onClick) { Text("Открыть") }
         }
@@ -255,13 +266,28 @@ private fun CustomerRow(клиент: CustomerEntity, onClick: () -> Unit) {
 fun CustomerScreen(vm: AgentViewModel, onOrder: () -> Unit, onBack: () -> Unit) {
     val клиент by vm.currentCustomer.collectAsState()
     val текущий = клиент ?: return
+    val задания by vm.currentTasks.collectAsState()
     var сумма by remember { mutableStateOf("") }
     var примечание by remember { mutableStateOf("") }
+    var заданиеКОтметке by remember { mutableStateOf<TaskEntity?>(null) }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    val уточнитьКоординаты = rememberLocationRequester(
+        onLocation = { lat, lon -> vm.refineCustomerLocation(lat, lon) },
+        onError = { vm.setMessage(it) },
+    )
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text(текущий.name, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         if (текущий.address.isNotBlank()) {
             Text(текущий.address, color = MaterialTheme.colorScheme.outline)
+        }
+
+        if (задания.isNotEmpty()) {
+            Text("Задания", fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+            задания.forEach { задание ->
+                ЗаданиеКарточка(задание) { заданиеКОтметке = задание }
+            }
         }
 
         Card(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
@@ -322,10 +348,94 @@ fun CustomerScreen(vm: AgentViewModel, onOrder: () -> Unit, onBack: () -> Unit) 
                 modifier = Modifier.weight(1f)) { Text("Закрыта") }
         }
 
+        Row(Modifier.fillMaxWidth().padding(top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            МаркерЛокации(текущий.lat != null, Modifier.padding(end = 6.dp))
+            Text(
+                if (текущий.lat != null) "Координаты точки заданы"
+                else "Координаты точки не заданы",
+                modifier = Modifier.weight(1f), fontSize = 13.sp,
+                color = if (текущий.lat != null) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.error)
+        }
+        OutlinedButton(onClick = уточнитьКоординаты,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            Text(if (текущий.lat != null) "Обновить координаты"
+                 else "Уточнить координаты")
+        }
+
         TextButton(onClick = onBack, modifier = Modifier.padding(top = 12.dp)) {
             Text("← к списку")
         }
     }
+
+    заданиеКОтметке?.let { задание ->
+        ЗаданиеДиалог(
+            vm = vm,
+            задание = задание,
+            onDismiss = { заданиеКОтметке = null },
+            onDone = { комментарий ->
+                vm.completeTask(задание.uuid, комментарий)
+                заданиеКОтметке = null
+            },
+        )
+    }
+}
+
+@Composable
+private fun ЗаданиеКарточка(задание: TaskEntity, onDone: () -> Unit) {
+    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Column(Modifier.padding(12.dp)) {
+            Text(задание.text, fontWeight = FontWeight.Medium)
+            if (задание.date.isNotBlank()) {
+                Text("до ${задание.date}", fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.outline)
+            }
+            OutlinedButton(onClick = onDone,
+                modifier = Modifier.padding(top = 8.dp)) { Text("Выполнить") }
+        }
+    }
+}
+
+@Composable
+private fun ЗаданиеДиалог(vm: AgentViewModel, задание: TaskEntity,
+                         onDismiss: () -> Unit, onDone: (String) -> Unit) {
+    var комментарий by remember { mutableStateOf("") }
+    val фотоПоток = remember(задание.uuid) { vm.taskPhotoCount(задание.uuid) }
+    val количествоФото by фотоПоток.collectAsState(initial = 0)
+    val сделатьФото = rememberPhotoCapture(
+        onCaptured = { файл -> vm.addTaskPhoto(задание.uuid, файл) })
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Выполнение задания") },
+        text = {
+            Column {
+                Text(задание.text)
+                OutlinedTextField(
+                    value = комментарий, onValueChange = { комментарий = it },
+                    label = { Text("Комментарий (отчёт)") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                )
+                OutlinedButton(onClick = сделатьФото,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Text(if (количествоФото > 0) "Добавить фото (уже $количествоФото)"
+                         else "Сделать фото")
+                }
+                if (количествоФото > 0) {
+                    Text("Фото уйдут в 1С при обмене", fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onDone(комментарий) }) { Text("Отметить выполненным") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        },
+    )
 }
 
 @Composable
@@ -336,11 +446,26 @@ private fun Строка(подпись: String, значение: String) {
     }
 }
 
-/** Отправленные документы: заказы и оплаты с их состоянием и номером в учёте. */
+/** Пометка наличия координат у клиента: цветная булавка — точка привязана,
+ *  бледная — координат нет. */
+@Composable
+private fun МаркерЛокации(естьЛокация: Boolean, modifier: Modifier = Modifier) {
+    Icon(
+        imageVector = Icons.Filled.Place,
+        contentDescription = if (естьЛокация) "координаты заданы" else "координат нет",
+        tint = if (естьЛокация) MaterialTheme.colorScheme.primary
+               else MaterialTheme.colorScheme.outlineVariant,
+        modifier = modifier.size(18.dp),
+    )
+}
+
+/** Отправленные документы: заказы и оплаты с их состоянием и номером в учёте.
+ *  Двойной клик по строке открывает документ (для заказа — со строками). */
 @Composable
 fun SentDocsScreen(vm: AgentViewModel) {
     val заказы by vm.recentOrders.collectAsState()
     val оплаты by vm.recentPayments.collectAsState()
+    val открытый by vm.openDoc.collectAsState()
 
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         item {
@@ -357,6 +482,7 @@ fun SentDocsScreen(vm: AgentViewModel) {
                 сумма = з.amount,
                 состояние = состояниеЗаказа(з),
                 ошибка = з.error,
+                onOpen = { vm.openOrder(з) },
             )
             HorizontalDivider()
         }
@@ -374,10 +500,13 @@ fun SentDocsScreen(vm: AgentViewModel) {
                 сумма = о.amount,
                 состояние = if (о.synced) "отправлена" else if (о.error.isNotBlank()) "ошибка" else "в очереди",
                 ошибка = о.error,
+                onOpen = { vm.openPayment(о) },
             )
             HorizontalDivider()
         }
     }
+
+    открытый?.let { док -> ДокументДиалог(док) { vm.closeDoc() } }
 }
 
 private fun состояниеЗаказа(з: OrderEntity): String = when {
@@ -387,10 +516,17 @@ private fun состояниеЗаказа(з: OrderEntity): String = when {
     else -> "отправлен"
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun ДокументСтрока(номер: String, дата: String, сумма: String,
-                           состояние: String, ошибка: String) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                           состояние: String, ошибка: String, onOpen: () -> Unit) {
+    // Двойной клик, как и в списке клиентов: одиночный тап при прокрутке
+    // срабатывает случайно.
+    Column(
+        Modifier.fillMaxWidth()
+            .combinedClickable(onClick = {}, onDoubleClick = onOpen)
+            .padding(vertical = 8.dp)
+    ) {
         Row(Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
                 Text(номер, fontWeight = FontWeight.Medium)
@@ -403,4 +539,53 @@ private fun ДокументСтрока(номер: String, дата: String, �
             Text(ошибка, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
         }
     }
+}
+
+@Composable
+private fun ДокументДиалог(док: OpenedDoc, onClose: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(док.title) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("${док.date} · ${док.state}", fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.outline)
+                if (док.note.isNotBlank()) {
+                    Text(док.note, fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 6.dp))
+                }
+                if (док.lines.isNotEmpty()) {
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    док.lines.forEach { строка ->
+                        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                            Row(Modifier.fillMaxWidth()) {
+                                Text(строка.name, modifier = Modifier.weight(1f),
+                                    fontSize = 14.sp)
+                                Text(деньги(строка.amount), fontWeight = FontWeight.Medium,
+                                    fontSize = 14.sp)
+                            }
+                            val скидка = строка.discountPercent.toBigDecimalOrNull()
+                                ?: BigDecimal.ZERO
+                            Text(
+                                buildString {
+                                    append("${строка.qty} × ${деньги(строка.price)}")
+                                    if (скидка > BigDecimal.ZERO) append(" · −${строка.discountPercent}%")
+                                },
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                }
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Row(Modifier.fillMaxWidth()) {
+                    Text("Итого", modifier = Modifier.weight(1f),
+                        fontWeight = FontWeight.Bold)
+                    Text(деньги(док.total), fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onClose) { Text("Закрыть") }
+        },
+    )
 }

@@ -25,13 +25,14 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import delete, select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from . import ut_client  # noqa: E402
 from .db import SessionLocal, engine  # noqa: E402
 from .models import (  # noqa: E402
-    Base, Customer, Order, Payment, Product, User, UtExport,
+    Base, Customer, CustomerGeoPush, Order, Payment, Product, Task, TaskPhoto,
+    User, UtExport,
 )
 
 log = logging.getLogger("push_to_ut")
@@ -172,6 +173,118 @@ def _отправить_оплаты(session: Session) -> int:
     return ошибок
 
 
+def _отправить_задания(session: Session) -> int:
+    """Отметки выполнения заданий в УТ (метод /tasks). Идемпотентность — своя,
+    флагом задания done_pushed (а не ut_exports: у заданий нет client_uid,
+    ключ — uuid из УТ). Шлём выполненные и ещё не отправленные; принятые
+    помечаем pushed, отклонённые повторяем на следующем прогоне.
+    """
+    задания = session.scalars(
+        select(Task).where(Task.done, Task.done_pushed.is_(False))).all()
+    if not задания:
+        return 0
+
+    по_uid = {з.uuid: з for з in задания}
+    пакет = {"tasks": [
+        {"uid": з.uuid, "comment": з.comment} for з in задания]}
+    try:
+        ответ = ut_client.отправить("tasks", пакет)
+    except ut_client.ОшибкаУТ:
+        log.exception("отправка отметок выполнения заданий не удалась")
+        return 1
+
+    for р in ответ.get("results", []):
+        uid = р.get("uid")
+        задание = по_uid.get(uid)
+        if задание is None:
+            continue
+        if р.get("status") == "accepted":
+            задание.done_pushed = True
+        else:
+            # Не помечаем: причина может быть исправимой (задание ещё не
+            # синхронизовано ссылкой). Повторим на следующем прогоне.
+            log.warning("отметка задания %s отклонена УТ, повтор позже: %s",
+                        uid, р.get("error", ""))
+    session.commit()
+    return 0
+
+
+def _отправить_фото(session: Session) -> int:
+    """Фотоотчёты заданий в УТ (метод /tasks/photo, бинарём). Шина хранит фото
+    лишь до доставки: принятое удаляем. Отказ УТ по существу (задание не
+    найдено — status rejected) терминальный: тоже удаляем, иначе «мёртвое» фото
+    гонялось бы вечно (к несуществующему заданию его не приложить). Сбой связи/
+    хранения — исключение ОшибкаУТ: фото оставляем, повторим на следующем
+    прогоне.
+    """
+    снимки = session.scalars(select(TaskPhoto)).all()
+    if not снимки:
+        return 0
+
+    ошибок = 0
+    for снимок in снимки:
+        try:
+            ответ = ut_client.отправить_двоичные(
+                "tasks/photo", снимок.content,
+                {"task": снимок.task_uuid, "name": снимок.name})
+        except ut_client.ОшибкаУТ:
+            ошибок += 1
+            log.exception("отправка фото %s задания %s не удалась",
+                          снимок.name, снимок.task_uuid)
+            continue
+        if ответ.get("status") == "accepted":
+            session.delete(снимок)
+        else:
+            log.warning("фото %s задания %s отклонено УТ, снято с очереди: %s",
+                        снимок.name, снимок.task_uuid, ответ.get("error", ""))
+            session.delete(снимок)
+        session.commit()
+    return ошибок
+
+
+def _отправить_координаты(session: Session) -> int:
+    """Уточнённые координаты клиентов в УТ (метод /customers/geo, пачкой).
+
+    Принятую точку убираем из очереди — но ТОЛЬКО если агент не уточнил её ещё
+    раз между чтением и сейчас (строка с тем же клиентом, но новым `at` —
+    свежее значение, затирать его нельзя, уйдёт следующим прогоном).
+
+    Отказ УТ по существу («нет контрагента», «не заведены виды координат») —
+    НЕ терминальный: строку оставляем. Причина исправима (заведут контрагента/
+    виды), а терять уточнение агента нельзя — иначе следующая выгрузка
+    /customers откатит точку и на телефоне, и это ровно тот молчаливый регресс,
+    что видит пользователь. Строка одна на клиента (перезапись), очередь не
+    растёт. Сбой связи — вся пачка остаётся до следующего прогона.
+    """
+    точки = session.scalars(select(CustomerGeoPush)).all()
+    if not точки:
+        return 0
+
+    снимок_at = {т.customer_uuid: т.at for т in точки}
+    пакет = {"locations": [
+        {"customer_uid": т.customer_uuid, "lat": т.lat, "lon": т.lon}
+        for т in точки]}
+    try:
+        ответ = ut_client.отправить("customers/geo", пакет)
+    except ut_client.ОшибкаУТ:
+        log.exception("отправка координат клиентов не удалась")
+        return 1
+
+    for р in ответ.get("results", []):
+        cuid = р.get("customer_uid")
+        if cuid not in снимок_at:
+            continue
+        if р.get("status") == "accepted":
+            session.execute(delete(CustomerGeoPush).where(
+                CustomerGeoPush.customer_uuid == cuid,
+                CustomerGeoPush.at == снимок_at[cuid]))
+        else:
+            log.warning("координаты клиента %s отклонены УТ, оставлены в очереди: %s",
+                        cuid, р.get("error", ""))
+    session.commit()
+    return 0
+
+
 def run_push() -> int:
     """Отправка накопленных документов в УТ. Возвращает число упавших групп
     (0 — всё ушло). Сбой связи по одному агенту не роняет остальных: документ
@@ -191,6 +304,24 @@ def run_push() -> int:
             ошибок += 1
             session.rollback()
             log.exception("сбой отправки оплат")
+        try:
+            ошибок += _отправить_задания(session)
+        except Exception:
+            ошибок += 1
+            session.rollback()
+            log.exception("сбой отправки отметок заданий")
+        try:
+            ошибок += _отправить_фото(session)
+        except Exception:
+            ошибок += 1
+            session.rollback()
+            log.exception("сбой отправки фотоотчётов")
+        try:
+            ошибок += _отправить_координаты(session)
+        except Exception:
+            ошибок += 1
+            session.rollback()
+            log.exception("сбой отправки координат")
     return ошибок
 
 

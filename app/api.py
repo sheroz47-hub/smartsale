@@ -24,6 +24,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import services
@@ -33,10 +34,14 @@ from .auth import (
 from .config import CURRENCY, REQUIRE_VISIT_GPS, SYNC_PAGE_SIZE
 from .db import get_session
 from .models import (
-    Customer, Device, Order, OrderLine, Payment, Price, PriceType, Product,
-    ProductCategory, Promotion, Route, RouteStop, Stock, SyncLog, User, Visit,
-    Warehouse,
+    Customer, CustomerGeoPush, Device, Order, OrderLine, Payment, Price,
+    PriceType, Product, ProductCategory, Promotion, Route, RouteStop, Stock,
+    SyncLog, Task, TaskPhoto, User, Visit, Warehouse,
 )
+
+# Предел размера одного фото. Снимок сжимается на телефоне; на шине это ещё и
+# защита от переполнения тела запроса (nginx режет на 8 МБ — держим ниже).
+MAX_PHOTO_BYTES = 6 * 1024 * 1024
 
 log = logging.getLogger("api")
 router = APIRouter(prefix="/api/v1")
@@ -203,6 +208,10 @@ def pull(request: Request, since: str = "",
 
     маршруты = изменённые(Route, select(Route).where(Route.agent_id == агент.id))
 
+    # Задания только свои. Отданные с active=false (снято в УТ) или done=true
+    # (выполнение уже принято) телефон убирает из списка к исполнению.
+    задания = изменённые(Task, select(Task).where(Task.agent_id == агент.id))
+
     # Акции — условия для движка скидок на телефоне. Приходят всем агентам
     # одинаково (отбор по клиенту/сегменту делает движок при наборе заказа).
     # Отданные с active=false — погашенные: телефон обязан их убрать.
@@ -214,7 +223,7 @@ def pull(request: Request, since: str = "",
         # Признак того, что выдача упёрлась в размер страницы: телефон должен
         # сразу повторить запрос с новым since, не дожидаясь расписания.
         "more": any(len(x) >= SYNC_PAGE_SIZE
-                    for x in (товары, клиенты, категории, акции)),
+                    for x in (товары, клиенты, категории, акции, маршруты, задания)),
         "warehouses": [{
             "uuid": с.uuid, "code": с.code, "name": с.name, "active": с.active,
         } for с in склады],
@@ -265,6 +274,12 @@ def pull(request: Request, since: str = "",
                 "customer_uuid": т.customer.uuid, "sort_order": т.sort_order,
             } for т in м.stops],
         } for м in маршруты],
+        "tasks": [{
+            "uuid": з.uuid,
+            "customer_uuid": з.customer.uuid if з.customer else None,
+            "date": з.date.isoformat() if з.date else "",
+            "text": з.text, "done": з.done, "active": з.active,
+        } for з in задания],
         "promotions": [{
             "uuid": а.uuid, "name": а.name, "mechanic": а.mechanic,
             "date_from": а.date_from.isoformat() if а.date_from else "",
@@ -372,10 +387,27 @@ class ВизитСТелефона(BaseModel):
     comment: str = ""
 
 
+class ВыполнениеЗадания(BaseModel):
+    # Ключ — uuid задания из УТ (у заданий нет client_uid: их автор УТ, а не
+    # телефон). Идемпотентность — по нему.
+    uuid: str
+    done_at: datetime | None = None
+    comment: str = ""
+
+
+class ЛокацияКлиента(BaseModel):
+    # Уточнённые агентом координаты точки. lat/lon строками, как во всём обмене.
+    customer_uuid: str
+    lat: str
+    lon: str
+
+
 class ПакетОтправки(BaseModel):
     orders: list[ЗаказСТелефона] = []
     payments: list[ОплатаСТелефона] = []
     visits: list[ВизитСТелефона] = []
+    tasks: list[ВыполнениеЗадания] = []
+    locations: list[ЛокацияКлиента] = []
 
 
 @router.post("/sync/push")
@@ -389,7 +421,8 @@ def push(пакет: ПакетОтправки, device: Device = Depends(curren
     """
     начало = time.monotonic()
     агент: User = device.user
-    результат = {"orders": [], "payments": [], "visits": []}
+    результат = {"orders": [], "payments": [], "visits": [], "tasks": [],
+                 "locations": []}
 
     for заказ in пакет.orders:
         результат["orders"].append(_принять_заказ(session, агент, заказ))
@@ -397,6 +430,10 @@ def push(пакет: ПакетОтправки, device: Device = Depends(curren
         результат["payments"].append(_принять_оплату(session, агент, оплата))
     for визит in пакет.visits:
         результат["visits"].append(_принять_визит(session, агент, визит))
+    for задание in пакет.tasks:
+        результат["tasks"].append(_принять_выполнение_задания(session, агент, задание))
+    for локация in пакет.locations:
+        результат["locations"].append(_принять_локацию(session, агент, локация))
 
     session.add(SyncLog(
         device_id=device.id, user_id=агент.id, direction="push",
@@ -535,8 +572,127 @@ def _принять_визит(session: Session, агент: User,
     return {"client_uid": данные.client_uid, "status": "accepted"}
 
 
+def _принять_выполнение_задания(session: Session, агент: User,
+                                данные: ВыполнениеЗадания) -> dict:
+    """Отметка выполнения задания от агента. Ключ — uuid задания (из УТ).
+
+    Обратный канал в УТ снимает push_to_ut по флагу done_pushed. Повторная
+    отметка уже выполненного задания безвредна: комментарий не перезаписываем
+    и заново в УТ не шлём — иначе повтор пакета с телефона задваивал бы отчёт.
+    """
+    задание = session.scalar(select(Task).where(Task.uuid == данные.uuid))
+    if задание is None:
+        return {"uuid": данные.uuid, "status": "rejected",
+                "error": "задание не найдено на сервере"}
+    # Чужое задание не отмечаем: uuid известен всем, но выполнить его может
+    # только тот агент, на кого оно поставлено.
+    if задание.agent_id != агент.id:
+        return {"uuid": данные.uuid, "status": "rejected",
+                "error": "задание назначено другому агенту"}
+    if задание.done:
+        return {"uuid": данные.uuid, "status": "accepted"}
+
+    задание.done = True
+    задание.done_at = данные.done_at or datetime.now(timezone.utc)
+    задание.comment = данные.comment
+    задание.done_pushed = False
+    return {"uuid": данные.uuid, "status": "accepted"}
+
+
+def _коорд(значение: str) -> float | None:
+    """Координата из строки. Пустая/битая → None (0,0 — точка в океане, не
+    «нет данных»)."""
+    текст = (значение or "").strip().replace(",", ".")
+    if not текст:
+        return None
+    try:
+        return float(текст)
+    except ValueError:
+        return None
+
+
+def _принять_локацию(session: Session, агент: User,
+                     данные: ЛокацияКлиента) -> dict:
+    """Уточнённые агентом координаты клиента. Обновляем свою копию сразу и
+    кладём в буфер на проталкивание в УТ (push_to_ut).
+
+    «По кнопке»: агент явно уточняет точку, поэтому перезаписываем без оглядки
+    на прежнее значение — в отличие от приёма из УТ, где чужую точную точку не
+    трогаем.
+    """
+    клиент = session.scalar(
+        select(Customer).where(Customer.uuid == данные.customer_uuid))
+    if клиент is None:
+        return {"customer_uuid": данные.customer_uuid, "status": "rejected",
+                "error": "клиент не найден на сервере"}
+    if клиент.agent_id != агент.id:
+        return {"customer_uuid": данные.customer_uuid, "status": "rejected",
+                "error": "клиент закреплён за другим агентом"}
+
+    lat, lon = _коорд(данные.lat), _коорд(данные.lon)
+    if lat is None or lon is None:
+        return {"customer_uuid": данные.customer_uuid, "status": "rejected",
+                "error": "неверные координаты"}
+
+    клиент.lat, клиент.lon = lat, lon
+
+    буфер = session.get(CustomerGeoPush, данные.customer_uuid)
+    if буфер is None:
+        буфер = CustomerGeoPush(customer_uuid=данные.customer_uuid)
+        session.add(буфер)
+    # Разделитель к точке: в КИ контрагента УТ ляжет ровно эта строка, а «41,28»
+    # там неаккуратно (round-trip и так сходится, но храним по-человечески).
+    буфер.lat = данные.lat.strip().replace(",", ".")
+    буфер.lon = данные.lon.strip().replace(",", ".")
+    буфер.at = datetime.now(timezone.utc)
+
+    return {"customer_uuid": данные.customer_uuid, "status": "accepted"}
+
+
 def _отказ(client_uid: str, причина: str) -> dict:
     return {"client_uid": client_uid, "status": "rejected", "error": причина}
+
+
+# --- фотоотчёт ---------------------------------------------------------------
+
+@router.post("/task_photo")
+async def task_photo(task: str, name: str, request: Request,
+                     device: Device = Depends(current_device),
+                     session: Session = Depends(get_session)):
+    """Приём одного фото к заданию. Сервер — шина: фото буферизуется и уходит в
+    УТ (push_to_ut), где и хранится. Тело запроса — само изображение (jpeg).
+
+    `task` — uuid задания, `name` — uuid снимка (он же имя файла в УТ и ключ
+    идемпотентности). Одно фото — один запрос: обрыв связи в поле не рушит
+    пачку, повтор по (task, name) второй строки не создаёт.
+    """
+    if not name.strip() or len(name) > 64:
+        raise HTTPException(status_code=400, detail="неверное имя файла")
+
+    задание = session.scalar(select(Task).where(Task.uuid == task))
+    if задание is None:
+        raise HTTPException(status_code=404, detail="задание не найдено на сервере")
+    if задание.agent_id != device.user_id:
+        raise HTTPException(status_code=403, detail="задание назначено другому агенту")
+
+    данные = await request.body()
+    if not данные:
+        raise HTTPException(status_code=400, detail="пустое тело фото")
+    if len(данные) > MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=413, detail="фото слишком большое")
+
+    существующее = session.scalar(select(TaskPhoto).where(
+        TaskPhoto.task_uuid == task, TaskPhoto.name == name))
+    if существующее is None:
+        session.add(TaskPhoto(task_uuid=task, name=name, content=данные))
+        try:
+            session.commit()
+        except IntegrityError:
+            # Гонка двух одинаковых (task, name) — второй ловит уникальный
+            # индекс. Дубля нет, фото уже принято первым: это успех, а не 500.
+            session.rollback()
+
+    return {"status": "accepted", "name": name}
 
 
 # --- состояние ранее отправленного -------------------------------------------

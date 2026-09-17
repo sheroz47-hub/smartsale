@@ -15,9 +15,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         OrderEntity::class, OrderLineEntity::class,
         PaymentEntity::class, VisitEntity::class,
         PromotionEntity::class, PromotionProductEntity::class,
-        PromotionThresholdEntity::class,
+        PromotionThresholdEntity::class, TaskEntity::class,
+        TaskPhotoEntity::class, LocationEntity::class,
     ],
-    version = 3,
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,6 +27,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun customers(): CustomerDao
     abstract fun documents(): DocumentDao
     abstract fun promotions(): PromotionDao
+    abstract fun tasks(): TaskDao
+    abstract fun media(): MediaDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -82,6 +85,65 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v3 → v4: таблица заданий агента (маршруты и задания, фаза B). Только
+        // CREATE TABLE — существующие таблицы не трогаются, очередь документов
+        // сохраняется.
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tasks` (" +
+                        "`uuid` TEXT NOT NULL, `customerUuid` TEXT, " +
+                        "`date` TEXT NOT NULL, `text` TEXT NOT NULL, " +
+                        "`active` INTEGER NOT NULL, `done` INTEGER NOT NULL, " +
+                        "`doneAt` TEXT, `comment` TEXT NOT NULL, " +
+                        "`synced` INTEGER NOT NULL, `error` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`uuid`))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_tasks_customerUuid` " +
+                        "ON `tasks` (`customerUuid`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_tasks_synced` " +
+                        "ON `tasks` (`synced`)"
+                )
+            }
+        }
+
+        // v4 → v5: очереди фотоотчётов и уточнённых координат (фаза C). Только
+        // CREATE TABLE — существующие таблицы не трогаются, очередь документов
+        // сохраняется.
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `task_photos` (" +
+                        "`uuid` TEXT NOT NULL, `taskUuid` TEXT NOT NULL, " +
+                        "`path` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                        "`synced` INTEGER NOT NULL, `error` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`uuid`))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_task_photos_taskUuid` " +
+                        "ON `task_photos` (`taskUuid`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_task_photos_synced` " +
+                        "ON `task_photos` (`synced`)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `pending_locations` (" +
+                        "`customerUuid` TEXT NOT NULL, `lat` TEXT NOT NULL, " +
+                        "`lon` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                        "`synced` INTEGER NOT NULL, `error` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`customerUuid`))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_pending_locations_synced` " +
+                        "ON `pending_locations` (`synced`)"
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, AppDatabase::class.java, "smartsale.db"
@@ -89,7 +151,8 @@ abstract class AppDatabase : RoomDatabase() {
                 // Миграции обязательны с первого же обновления. Разрушающая
                 // пересборка здесь не годится: в базе лежат неотправленные
                 // заказы, и потерять их — потерять день работы агента.
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
+                    MIGRATION_4_5)
                 .build()
                 .also { instance = it }
         }

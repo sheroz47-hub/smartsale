@@ -39,7 +39,7 @@ from .db import SessionLocal, engine  # noqa: E402
 from .models import (  # noqa: E402
     Base, Customer, Organization, Price, PriceType, Product, ProductCategory,
     Promotion, PromotionProduct, PromotionThreshold, Route, RouteStop, Stock,
-    User, Warehouse,
+    Task, User, Warehouse,
 )
 
 log = logging.getLogger("sync_from_ut")
@@ -377,6 +377,50 @@ def _принять_маршруты(session: Session) -> None:
     session.commit()
 
 
+def _принять_задания(session: Session) -> None:
+    """Задания агентам из УТ (meta.agent_tasks): агент, клиент, дата, текст.
+    Upsert по uuid = uid справочника SmartSale_Задания. Поля выполнения (done,
+    comment, done_at, done_pushed) ставит агент/обратный канал — приём их НЕ
+    трогает.
+
+    УТ отдаёт только активные и невыполненные задания. Пропавшее из выдачи
+    гасим active=false ТОЛЬКО когда данные реально пришли (как у маршрутов):
+    пустой agent_tasks при сбое иначе снёс бы задания с телефонов. Важное
+    исключение — уже выполненные задания (done): их УТ перестаёт отдавать сразу
+    после приёма выполнения, и гасить их по отсутствию не нужно, иначе агент,
+    ещё не забравший подтверждение, потерял бы отметку. Поэтому гасим только
+    невыполненные.
+    """
+    данные = ut_client.получить("meta")
+    задания_ут = данные.get("agent_tasks")
+    агенты = {п.uuid: п.id for п in session.scalars(select(User)).all()}
+    клиенты = {к.uuid: к.id for к in session.scalars(select(Customer)).all()}
+    задания = _карта(session, Task)
+
+    виденные = set()
+    for э in задания_ут or []:
+        uid = э.get("uid")
+        if not uid:
+            continue
+        з = задания.get(uid) or Task(uuid=uid)
+        з.agent_id = агенты.get(э.get("agent_uid"))
+        з.customer_id = клиенты.get(э.get("customer_uid"))
+        з.date = _date(э.get("date"))
+        з.text = э.get("text", "")
+        з.active = True
+        if з.id is None:
+            session.add(з)
+            задания[uid] = з
+        виденные.add(uid)
+
+    if задания_ут:
+        for uid, з in задания.items():
+            if uid not in виденные and з.active and not з.done:
+                з.active = False
+
+    session.commit()
+
+
 def _принять_акции(session: Session) -> None:
     элементы = ut_client.получить_список("promotions")
     пришедшие = {э["uid"] for э in элементы if э.get("uid")}
@@ -438,6 +482,7 @@ def _принять_акции(session: Session) -> None:
     ("агенты", _принять_агентов),
     ("клиенты", _принять_клиентов),
     ("маршруты", _принять_маршруты),
+    ("задания", _принять_задания),
     ("акции", _принять_акции),
 )
 

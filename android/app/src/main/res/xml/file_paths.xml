@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Временные файлы кадров камеры лежат в cacheDir/capture. Отдаём камере
+     только их: боевые снимки в filesDir/photos наружу не публикуются. -->
+<paths>
+    <cache-path name="capture" path="capture/" />
+</paths>

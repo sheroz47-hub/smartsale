@@ -201,6 +201,68 @@ data class PromotionThresholdEntity(
     val percent: String,
 )
 
+/**
+ * Задание агенту, поставленное в УТ.
+ *
+ * Приходит с сервера (автор — УТ): клиент, дата, текст. Агент отмечает
+ * выполнение с комментарием — [done] поднимается локально, [synced] только
+ * после подтверждения сервером. Пока [synced] = false, выполнение остаётся в
+ * очереди отправки, как заказ или оплата.
+ *
+ * Забор из сервера НЕ затирает локально выполненное, но ещё не отправленное
+ * задание (done && !synced): иначе отчёт агента пропал бы на ближайшем обмене
+ * до того, как уйдёт в УТ. Фото и локация клиента — следующая фаза.
+ */
+@Entity(tableName = "tasks", indices = [Index("customerUuid"), Index("synced")])
+data class TaskEntity(
+    @PrimaryKey val uuid: String,
+    val customerUuid: String?,
+    val date: String,
+    val text: String,
+    val active: Boolean,
+    val done: Boolean = false,
+    val doneAt: String? = null,
+    val comment: String = "",
+    val synced: Boolean = false,
+    val error: String = "",
+)
+
+/**
+ * Фотоотчёт к заданию — локальная очередь на отправку.
+ *
+ * Снимок хранится файлом ([path]) в каталоге приложения, а не в базе: класть
+ * несколько мегабайт JPEG в Room — раздувать базу и тормозить её. [uuid] —
+ * имя снимка (оно же имя файла в УТ и ключ идемпотентности на сервере).
+ * [synced] поднимается после подтверждения сервером; пока нет — снимок ждёт в
+ * очереди, сколько бы раз приложение ни перезапустили.
+ */
+@Entity(tableName = "task_photos", indices = [Index("taskUuid"), Index("synced")])
+data class TaskPhotoEntity(
+    @PrimaryKey val uuid: String,
+    val taskUuid: String,
+    val path: String,
+    val createdAt: Long,
+    val synced: Boolean = false,
+    val error: String = "",
+)
+
+/**
+ * Уточнённые агентом координаты клиента — очередь на отправку.
+ *
+ * Одна строка на клиента (перезапись): актуальна последняя уточнённая точка.
+ * [synced] поднимается после подтверждения сервером; отказ сервера
+ * (клиент не найден/чужой/битые координаты) — постоянный, тоже гасит очередь.
+ */
+@Entity(tableName = "pending_locations", indices = [Index("synced")])
+data class LocationEntity(
+    @PrimaryKey val customerUuid: String,
+    val lat: String,
+    val lon: String,
+    val createdAt: Long,
+    val synced: Boolean = false,
+    val error: String = "",
+)
+
 @Entity(tableName = "visits", indices = [Index("synced")])
 data class VisitEntity(
     @PrimaryKey val clientUid: String,

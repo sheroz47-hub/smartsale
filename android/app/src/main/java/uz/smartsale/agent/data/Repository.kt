@@ -1,11 +1,18 @@
 package uz.smartsale.agent.data
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import uz.smartsale.agent.data.db.AppDatabase
 import uz.smartsale.agent.data.db.CategoryEntity
 import uz.smartsale.agent.data.db.CustomerEntity
+import uz.smartsale.agent.data.db.LocationEntity
 import uz.smartsale.agent.data.db.OrderEntity
 import uz.smartsale.agent.data.db.OrderLineEntity
 import uz.smartsale.agent.data.db.PaymentEntity
@@ -17,16 +24,22 @@ import uz.smartsale.agent.data.db.PromotionProductEntity
 import uz.smartsale.agent.data.db.PromotionThresholdEntity
 import uz.smartsale.agent.data.db.RouteStopEntity
 import uz.smartsale.agent.data.db.StockEntity
+import uz.smartsale.agent.data.db.TaskEntity
+import uz.smartsale.agent.data.db.TaskPhotoEntity
 import uz.smartsale.agent.data.db.VisitEntity
 import uz.smartsale.agent.data.db.WarehouseEntity
 import uz.smartsale.agent.data.net.ApiFactory
+import uz.smartsale.agent.data.net.LocationDto
 import uz.smartsale.agent.data.net.LoginRequest
 import uz.smartsale.agent.data.net.OrderDto
 import uz.smartsale.agent.data.net.OrderLineDto
 import uz.smartsale.agent.data.net.PaymentDto
 import uz.smartsale.agent.data.net.PushRequest
 import uz.smartsale.agent.data.net.SmartSaleApi
+import uz.smartsale.agent.data.net.TaskDoneDto
 import uz.smartsale.agent.data.net.VisitDto
+import java.io.ByteArrayOutputStream
+import java.io.File
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.SimpleDateFormat
@@ -117,72 +130,161 @@ class Repository(private val context: Context) {
 
     private suspend fun push(): SyncResult {
         val documents = db.documents()
+        val media = db.media()
         val заказы = documents.pendingOrders()
         val оплаты = documents.pendingPayments()
         val визиты = documents.pendingVisits()
+        val задания = db.tasks().pendingCompletions()
+        val локации = media.pendingLocations()
+        val фото = media.pendingPhotos()
 
-        if (заказы.isEmpty() && оплаты.isEmpty() && визиты.isEmpty()) {
+        if (заказы.isEmpty() && оплаты.isEmpty() && визиты.isEmpty()
+            && задания.isEmpty() && локации.isEmpty() && фото.isEmpty()) {
             return SyncResult(ok = true, message = "нечего отправлять")
         }
-
-        val запрос = PushRequest(
-            orders = заказы.map { заказ ->
-                OrderDto(
-                    clientUid = заказ.clientUid,
-                    customerUuid = заказ.customerUuid,
-                    warehouseUuid = заказ.warehouseUuid,
-                    date = заказ.date,
-                    deliveryDate = заказ.deliveryDate,
-                    paymentType = заказ.paymentType,
-                    comment = заказ.comment,
-                    lines = documents.linesOf(заказ.clientUid).map {
-                        OrderLineDto(it.productUuid, it.qty, it.price, it.discountPercent)
-                    },
-                )
-            },
-            payments = оплаты.map {
-                PaymentDto(it.clientUid, it.customerUuid, it.date, it.amount, it.kind, it.comment)
-            },
-            visits = визиты.map {
-                VisitDto(it.clientUid, it.customerUuid, it.date, it.startedAt,
-                    it.finishedAt, it.lat, it.lon, it.result, it.comment)
-            },
-        )
-
-        val ответ = api().push(запрос)
 
         var отправлено = 0
         var отклонено = 0
 
-        ответ.orders.forEach { итог ->
-            if (итог.accepted) {
-                documents.markOrderSent(итог.clientUid, итог.number, итог.state)
-                отправлено++
-            } else {
-                // Отклонённый заказ не удаляется и повторно не отправляется:
-                // причина не в связи, а в существе — клиент в стопе, лимит,
-                // снятый товар. Решать это агенту, а не приложению.
-                documents.markOrderRejected(итог.clientUid, итог.error)
-                отклонено++
+        // JSON-документы (заказы/оплаты/визиты/задания/координаты) — одним
+        // запросом. Фото уходят отдельно бинарём, поэтому JSON-часть шлём,
+        // только если в ней что-то есть.
+        val естьJson = заказы.isNotEmpty() || оплаты.isNotEmpty()
+            || визиты.isNotEmpty() || задания.isNotEmpty() || локации.isNotEmpty()
+        if (естьJson) {
+            val запрос = PushRequest(
+                orders = заказы.map { заказ ->
+                    OrderDto(
+                        clientUid = заказ.clientUid,
+                        customerUuid = заказ.customerUuid,
+                        warehouseUuid = заказ.warehouseUuid,
+                        date = заказ.date,
+                        deliveryDate = заказ.deliveryDate,
+                        paymentType = заказ.paymentType,
+                        comment = заказ.comment,
+                        lines = documents.linesOf(заказ.clientUid).map {
+                            OrderLineDto(it.productUuid, it.qty, it.price, it.discountPercent)
+                        },
+                    )
+                },
+                payments = оплаты.map {
+                    PaymentDto(it.clientUid, it.customerUuid, it.date, it.amount, it.kind, it.comment)
+                },
+                visits = визиты.map {
+                    VisitDto(it.clientUid, it.customerUuid, it.date, it.startedAt,
+                        it.finishedAt, it.lat, it.lon, it.result, it.comment)
+                },
+                tasks = задания.map {
+                    TaskDoneDto(it.uuid, it.doneAt, it.comment)
+                },
+                locations = локации.map {
+                    LocationDto(it.customerUuid, it.lat, it.lon)
+                },
+            )
+
+            val ответ = api().push(запрос)
+
+            ответ.orders.forEach { итог ->
+                if (итог.accepted) {
+                    documents.markOrderSent(итог.clientUid, итог.number, итог.state)
+                    отправлено++
+                } else {
+                    // Отклонённый заказ не удаляется и повторно не отправляется:
+                    // причина не в связи, а в существе — клиент в стопе, лимит,
+                    // снятый товар. Решать это агенту, а не приложению.
+                    documents.markOrderRejected(итог.clientUid, итог.error)
+                    отклонено++
+                }
             }
-        }
-        ответ.payments.forEach { итог ->
-            if (итог.accepted) {
-                documents.markPaymentSent(итог.clientUid, итог.number); отправлено++
-            } else {
-                documents.markPaymentRejected(итог.clientUid, итог.error); отклонено++
+            ответ.payments.forEach { итог ->
+                if (итог.accepted) {
+                    documents.markPaymentSent(итог.clientUid, итог.number); отправлено++
+                } else {
+                    documents.markPaymentRejected(итог.clientUid, итог.error); отклонено++
+                }
             }
-        }
-        ответ.visits.forEach { итог ->
-            if (итог.accepted) {
-                documents.markVisitSent(итог.clientUid); отправлено++
-            } else {
-                documents.markVisitRejected(итог.clientUid, итог.error); отклонено++
+            ответ.visits.forEach { итог ->
+                if (итог.accepted) {
+                    documents.markVisitSent(итог.clientUid); отправлено++
+                } else {
+                    documents.markVisitRejected(итог.clientUid, итог.error); отклонено++
+                }
+            }
+            ответ.tasks.forEach { итог ->
+                if (итог.accepted) {
+                    db.tasks().markSent(итог.uuid); отправлено++
+                } else {
+                    db.tasks().markRejected(итог.uuid, итог.error); отклонено++
+                }
+            }
+            ответ.locations.forEach { итог ->
+                if (итог.accepted) {
+                    media.markLocationSent(итог.customerUuid); отправлено++
+                } else {
+                    // Отказ по существу (клиент не найден/чужой/битые координаты)
+                    // постоянный — снимаем с очереди.
+                    media.markLocationFailed(итог.customerUuid, итог.error); отклонено++
+                }
             }
         }
 
+        val (отпрФото, отклФото) = uploadPendingPhotos(фото)
+        отправлено += отпрФото
+        отклонено += отклФото
+
         return SyncResult(ok = отклонено == 0, message = "", sent = отправлено,
             rejected = отклонено)
+    }
+
+    /**
+     * Догрузка фотоотчётов — по одному бинарному запросу на снимок. Каждое фото
+     * за себя: сбой одного (сеть, отказ) не роняет обмен и остальные снимки.
+     * Успех и постоянный отказ (4xx) снимают снимок с очереди и удаляют файл;
+     * временный сбой (5xx/сеть) оставляют на следующий обмен.
+     */
+    private suspend fun uploadPendingPhotos(
+        фото: List<TaskPhotoEntity>,
+    ): Pair<Int, Int> {
+        if (фото.isEmpty()) return 0 to 0
+        val media = db.media()
+        val client = api()
+        var отправлено = 0
+        var отклонено = 0
+        for (снимок in фото) {
+            val файл = File(снимок.path)
+            if (!файл.exists()) {
+                // Файл пропал (очистка кэша/ручное удаление) — слать нечего.
+                // Не считаем «отклонённым»: сервер тут ни при чём, незачем
+                // пугать агента отчётом «сервер отклонил».
+                media.markPhotoFailed(снимок.uuid, "файл снимка не найден")
+                continue
+            }
+            try {
+                val тело = файл.readBytes().toRequestBody("image/jpeg".toMediaType())
+                val ответ = client.uploadTaskPhoto(снимок.taskUuid, снимок.uuid, тело)
+                // Тело ответа не разбираем, но обязаны закрыть — иначе течёт
+                // соединение (ResponseBody держит поток).
+                ответ.body()?.close()
+                ответ.errorBody()?.close()
+                when {
+                    ответ.isSuccessful -> {
+                        media.markPhotoSent(снимок.uuid); файл.delete(); отправлено++
+                    }
+                    ответ.code() in 400..499 -> {
+                        // Постоянный отказ (задание не найдено/чужое/битое имя):
+                        // повтор не поможет, снимаем с очереди.
+                        media.markPhotoFailed(снимок.uuid, "сервер отклонил (${ответ.code()})")
+                        файл.delete(); отклонено++
+                    }
+                    // 5xx — временный, оставляем на повтор.
+                    else -> Unit
+                }
+            } catch (_: Exception) {
+                // Сеть/таймаут: оставляем снимок в очереди, повторим на
+                // следующем обмене.
+            }
+        }
+        return отправлено to отклонено
     }
 
     private suspend fun pull(): Int {
@@ -239,6 +341,18 @@ class Repository(private val context: Context) {
                         }
                     }
                 )
+            }
+
+            if (ответ.tasks.isNotEmpty()) {
+                // synced = done: если сервер уже считает задание выполненным,
+                // оно улажено, повторно слать нечего. applyFromServer при этом
+                // не затрёт локально выполненное, но ещё не отправленное.
+                db.tasks().applyFromServer(ответ.tasks.map {
+                    TaskEntity(
+                        uuid = it.uuid, customerUuid = it.customerUuid,
+                        date = it.date, text = it.text, active = it.active,
+                        done = it.done, synced = it.done)
+                })
             }
 
             if (ответ.promotions.isNotEmpty()) {
@@ -342,6 +456,45 @@ class Repository(private val context: Context) {
         )
     }
 
+    // --- задания --------------------------------------------------------------
+
+    /** Отметить задание выполненным (с комментарием). Уходит в УТ обменом. */
+    suspend fun completeTask(uuid: String, comment: String) =
+        withContext(Dispatchers.IO) {
+            db.tasks().markDoneLocal(uuid, timestamp(), comment)
+        }
+
+    /** Прикрепить фото к заданию: сжать кадр и поставить в очередь отправки.
+     *  [sourceFile] — временный полный кадр из камеры; декодируется, ужимается
+     *  и удаляется здесь, в фоне (не на главном потоке). */
+    suspend fun addTaskPhoto(taskUuid: String, sourceFile: File) =
+        withContext(Dispatchers.IO) {
+            val байты = сжатьJpeg(sourceFile)
+            sourceFile.delete()
+            if (байты == null) return@withContext
+            val uid = UUID.randomUUID().toString()
+            val каталог = File(context.filesDir, "photos").apply { mkdirs() }
+            val файл = File(каталог, "$uid.jpg")
+            файл.writeBytes(байты)
+            db.media().insertPhoto(
+                TaskPhotoEntity(
+                    uuid = uid, taskUuid = taskUuid, path = файл.absolutePath,
+                    createdAt = System.currentTimeMillis()))
+        }
+
+    /** Число прикреплённых к заданию фото — для показа агенту. */
+    fun taskPhotoCount(taskUuid: String) = db.media().photoCount(taskUuid)
+
+    /** Уточнить координаты клиента «по кнопке»: очередь на отправку в УТ. */
+    suspend fun refineLocation(customerUuid: String, lat: Double, lon: Double) =
+        withContext(Dispatchers.IO) {
+            db.media().upsertLocation(
+                LocationEntity(
+                    customerUuid = customerUuid,
+                    lat = lat.toString(), lon = lon.toString(),
+                    createdAt = System.currentTimeMillis()))
+        }
+
     // --- акции ----------------------------------------------------------------
 
     /** Действующие акции в форме для движка: строки → BigDecimal (безопасно,
@@ -396,6 +549,58 @@ class Repository(private val context: Context) {
  *  кривой настройке акции. Разделитель приводим к точке. */
 private fun дробь(значение: String): BigDecimal =
     значение.trim().replace(",", ".").toBigDecimalOrNull() ?: BigDecimal.ZERO
+
+/**
+ * Сжать снимок из файла в JPEG: ужать до 1600px по большей стороне, качество
+ * 80, с поправкой на поворот из EXIF (иначе портретные кадры лежат боком).
+ * Битый/непрочитанный файл → null. Вызывать в фоне: декодирование и энкод
+ * многомегапиксельного кадра на главном потоке подвешивают интерфейс.
+ */
+private fun сжатьJpeg(файл: File, предел: Int = 1600, качество: Int = 80): ByteArray? {
+    val границы = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(файл.absolutePath, границы)
+    if (границы.outWidth <= 0 || границы.outHeight <= 0) return null
+
+    var шаг = 1
+    while (границы.outWidth / шаг > предел * 2 || границы.outHeight / шаг > предел * 2) {
+        шаг *= 2
+    }
+    val точечное = BitmapFactory.decodeFile(
+        файл.absolutePath, BitmapFactory.Options().apply { inSampleSize = шаг }
+    ) ?: return null
+
+    val масштаб = minOf(
+        1f, предел.toFloat() / maxOf(точечное.width, точечное.height))
+    val уменьшенное = if (масштаб < 1f) {
+        Bitmap.createScaledBitmap(
+            точечное, (точечное.width * масштаб).toInt(),
+            (точечное.height * масштаб).toInt(), true)
+    } else точечное
+
+    val повёрнутое = применитьПоворотEXIF(файл, уменьшенное)
+
+    val поток = ByteArrayOutputStream()
+    повёрнутое.compress(Bitmap.CompressFormat.JPEG, качество, поток)
+    return поток.toByteArray()
+}
+
+private fun применитьПоворотEXIF(файл: File, bitmap: Bitmap): Bitmap {
+    val угол = try {
+        when (ExifInterface(файл.absolutePath).getAttributeInt(
+            ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+            ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+            else -> 0f
+        }
+    } catch (_: Exception) {
+        0f
+    }
+    if (угол == 0f) return bitmap
+    val матрица = Matrix().apply { postRotate(угол) }
+    return Bitmap.createBitmap(
+        bitmap, 0, 0, bitmap.width, bitmap.height, матрица, true)
+}
 
 /**
  * Текст ошибки для агента.
