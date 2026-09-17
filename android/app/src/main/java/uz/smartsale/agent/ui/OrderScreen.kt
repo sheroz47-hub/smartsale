@@ -10,18 +10,24 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -30,6 +36,11 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.Flow
 import uz.smartsale.agent.data.db.CatalogRow
 import java.math.BigDecimal
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Подбор товара и корзина на одном экране.
@@ -38,11 +49,17 @@ import java.math.BigDecimal
  * а сумма заказа должна быть видна всё время — по ней клиент решает, брать
  * ли ещё.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
     var поиск by remember { mutableStateOf("") }
     var примечание by remember { mutableStateOf("") }
     var показатьПроверку by remember { mutableStateOf(false) }
+    // Дата предполагаемой отгрузки: по умолчанию завтра, агент может сдвинуть
+    // на более поздний день (раньше завтра нельзя), пустой быть не может.
+    var миллисОтгрузки by remember { mutableStateOf(началоДняUTC(1)) }
+    var показатьКалендарь by remember { mutableStateOf(false) }
+    val датаОтгрузки = миллисВдату(миллисОтгрузки)
     val клиент by vm.currentCustomer.collectAsState()
     val корзина by vm.cart.collectAsState()
     val цены by vm.pricedCart.collectAsState()
@@ -94,6 +111,13 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
                     label = { Text("Комментарий к заказу") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 )
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Отгрузка: $датаОтгрузки", modifier = Modifier.weight(1f))
+                    TextButton(onClick = { показатьКалендарь = true }) {
+                        Text("Изменить дату")
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = onBack, modifier = Modifier.weight(1f)) {
                         Text("Отмена")
@@ -115,24 +139,67 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
         if (показатьПроверку) {
             ПроверкаЗаказа(
                 цены = цены,
+                датаОтгрузки = датаОтгрузки,
                 onConfirm = {
                     показатьПроверку = false
                     vm.saveOrder(
                         paymentType = клиент?.paymentType ?: "cash",
                         comment = примечание,
+                        deliveryDate = датаОтгрузки,
                         onDone = onDone,
                     )
                 },
                 onDismiss = { показатьПроверку = false },
             )
         }
+
+        if (показатьКалендарь) {
+            val состояние = rememberDatePickerState(
+                initialSelectedDateMillis = миллисОтгрузки,
+                selectableDates = object : SelectableDates {
+                    // Раньше завтра отгрузку не ставим.
+                    override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                        utcTimeMillis >= началоДняUTC(1)
+                })
+            DatePickerDialog(
+                onDismissRequest = { показатьКалендарь = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        состояние.selectedDateMillis?.let { миллисОтгрузки = it }
+                        показатьКалендарь = false
+                    }) { Text("OK") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { показатьКалендарь = false }) { Text("Отмена") }
+                },
+            ) { DatePicker(state = состояние) }
+        }
     }
+}
+
+/** Полночь UTC даты, отстоящей на [днейОтСегодня] от сегодня (локально). Формат
+ *  DatePicker — UTC-миллисекунды, поэтому и границу считаем в UTC. */
+private fun началоДняUTC(днейОтСегодня: Int): Long {
+    val местное = Calendar.getInstance()
+    местное.add(Calendar.DAY_OF_MONTH, днейОтСегодня)
+    val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+    utc.clear()
+    utc.set(местное.get(Calendar.YEAR), местное.get(Calendar.MONTH),
+        местное.get(Calendar.DAY_OF_MONTH), 0, 0, 0)
+    return utc.timeInMillis
+}
+
+private fun миллисВдату(миллисUTC: Long): String {
+    val формат = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    формат.timeZone = TimeZone.getTimeZone("UTC")
+    return формат.format(Date(миллисUTC))
 }
 
 /** Просмотр полного заказа перед отправкой: позиции со скидкой, бонусы, итог. */
 @Composable
 private fun ПроверкаЗаказа(
     цены: PricedCart,
+    датаОтгрузки: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -165,6 +232,8 @@ private fun ПроверкаЗаказа(
         },
         confirmButton = {
             Column(Modifier.fillMaxWidth()) {
+                Text("Отгрузка: $датаОтгрузки", fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.outline)
                 if (цены.discount > BigDecimal.ZERO) {
                     Text("Скидка: −${деньги(цены.discount.toPlainString())}",
                         fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)

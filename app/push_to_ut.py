@@ -116,6 +116,8 @@ def _отправить_заказы(session: Session) -> int:
                 "client_uid": заказ.client_uid,
                 "customer_uid": клиент_uid,
                 "date": заказ.date.isoformat(),
+                "delivery_date": (заказ.delivery_date.isoformat()
+                                  if заказ.delivery_date else ""),
                 "comment": заказ.comment,
                 "lines": строки,
             })

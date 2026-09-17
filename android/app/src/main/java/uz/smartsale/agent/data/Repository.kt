@@ -438,6 +438,7 @@ class Repository(private val context: Context) {
         warehouseUuid: String?,
         paymentType: String,
         comment: String,
+        deliveryDate: String,
         lines: List<OrderLineEntity>,
         amount: BigDecimal,
     ): String = withContext(Dispatchers.IO) {
@@ -448,7 +449,7 @@ class Repository(private val context: Context) {
                 customerUuid = customerUuid,
                 warehouseUuid = warehouseUuid,
                 date = today(),
-                deliveryDate = null,
+                deliveryDate = deliveryDate,
                 paymentType = paymentType,
                 comment = comment,
                 amount = amount.toPlainString(),
