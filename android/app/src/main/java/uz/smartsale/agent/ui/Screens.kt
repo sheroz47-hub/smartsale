@@ -50,6 +50,7 @@ import uz.smartsale.agent.data.db.CustomerEntity
 import uz.smartsale.agent.data.db.OrderEntity
 import uz.smartsale.agent.data.db.PaymentEntity
 import uz.smartsale.agent.data.db.TaskEntity
+import uz.smartsale.agent.data.db.TaskRow
 import java.math.BigDecimal
 
 /** Суммы с разделителями разрядов: в сумах они длинные. */
@@ -395,7 +396,8 @@ fun CustomerScreen(vm: AgentViewModel, onOrder: () -> Unit, onBack: () -> Unit) 
     заданиеКОтметке?.let { задание ->
         ЗаданиеДиалог(
             vm = vm,
-            задание = задание,
+            taskUuid = задание.uuid,
+            taskText = задание.text,
             onDismiss = { заданиеКОтметке = null },
             onDone = { комментарий ->
                 vm.completeTask(задание.uuid, комментарий)
@@ -421,20 +423,20 @@ private fun ЗаданиеКарточка(задание: TaskEntity, onDone: (
 }
 
 @Composable
-private fun ЗаданиеДиалог(vm: AgentViewModel, задание: TaskEntity,
+private fun ЗаданиеДиалог(vm: AgentViewModel, taskUuid: String, taskText: String,
                          onDismiss: () -> Unit, onDone: (String) -> Unit) {
     var комментарий by remember { mutableStateOf("") }
-    val фотоПоток = remember(задание.uuid) { vm.taskPhotoCount(задание.uuid) }
+    val фотоПоток = remember(taskUuid) { vm.taskPhotoCount(taskUuid) }
     val количествоФото by фотоПоток.collectAsState(initial = 0)
     val сделатьФото = rememberPhotoCapture(
-        onCaptured = { файл -> vm.addTaskPhoto(задание.uuid, файл) })
+        onCaptured = { файл -> vm.addTaskPhoto(taskUuid, файл) })
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Выполнение задания") },
         text = {
             Column {
-                Text(задание.text)
+                Text(taskText)
                 OutlinedTextField(
                     value = комментарий, onValueChange = { комментарий = it },
                     label = { Text("Комментарий (отчёт)") },
@@ -597,6 +599,52 @@ fun SentDocsScreen(vm: AgentViewModel) {
     }
 
     открытый?.let { док -> ДокументДиалог(док) { vm.closeDoc() } }
+}
+
+/** Экран «Задания»: все активные задания агента (по всем клиентам). Двойной
+ *  клик/кнопка открывает отметку выполнения с фотоотчётом. */
+@Composable
+fun ЗаданияScreen(vm: AgentViewModel) {
+    val задания by vm.activeTasks.collectAsState()
+    var кОтметке by remember { mutableStateOf<TaskRow?>(null) }
+
+    if (задания.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Активных заданий нет.\nОткройте «Обмен» и обменяйтесь с сервером.",
+                color = MaterialTheme.colorScheme.outline,
+                textAlign = TextAlign.Center, modifier = Modifier.padding(32.dp))
+        }
+    } else {
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+            items(задания, key = { it.uuid }) { задание ->
+                Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                    Text(задание.text, fontWeight = FontWeight.Medium)
+                    Text(задание.customerName.ifBlank { "клиент не загружен" },
+                        fontSize = 13.sp, color = MaterialTheme.colorScheme.outline)
+                    if (задание.date.isNotBlank()) {
+                        Text("до ${задание.date}", fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.outline)
+                    }
+                    OutlinedButton(onClick = { кОтметке = задание },
+                        modifier = Modifier.padding(top = 8.dp)) { Text("Выполнить") }
+                }
+                HorizontalDivider()
+            }
+        }
+    }
+
+    кОтметке?.let { задание ->
+        ЗаданиеДиалог(
+            vm = vm,
+            taskUuid = задание.uuid,
+            taskText = задание.text,
+            onDismiss = { кОтметке = null },
+            onDone = { комментарий ->
+                vm.completeTask(задание.uuid, комментарий)
+                кОтметке = null
+            },
+        )
+    }
 }
 
 private fun состояниеЗаказа(з: OrderEntity): String = when {

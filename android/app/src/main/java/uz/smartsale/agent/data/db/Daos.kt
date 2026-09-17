@@ -185,6 +185,15 @@ interface DocumentDao {
     fun visitedOn(date: String): Flow<List<String>>
 }
 
+/** Строка списка заданий с именем клиента — для общего экрана «Задания». */
+data class TaskRow(
+    val uuid: String,
+    val customerUuid: String?,
+    val customerName: String,
+    val date: String,
+    val text: String,
+)
+
 @Dao
 interface TaskDao {
 
@@ -233,6 +242,25 @@ interface TaskDao {
         """
     )
     fun forCustomer(customerUuid: String): Flow<List<TaskEntity>>
+
+    /**
+     * Все активные невыполненные задания агента с именем клиента — для общего
+     * экрана «Задания». Имя клиента подтягиваем join'ом: на телефоне у агента
+     * только свои клиенты, но задание могло приехать раньше клиента — тогда имя
+     * пустое, покажем uuid.
+     */
+    @Query(
+        """
+        SELECT t.uuid AS uuid, t.customerUuid AS customerUuid,
+               COALESCE(c.name, '') AS customerName, t.date AS date,
+               t.text AS text
+        FROM tasks t
+        LEFT JOIN customers c ON c.uuid = t.customerUuid
+        WHERE t.active = 1 AND t.done = 0
+        ORDER BY t.date, customerName
+        """
+    )
+    fun activeTasks(): Flow<List<TaskRow>>
 
     /** Отметить выполнение локально: уйдёт в очередь отправки. */
     @Query(

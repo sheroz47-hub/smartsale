@@ -131,6 +131,10 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
     val auditQuestions = repository.auditQuestions()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    /** Все активные задания агента (для отдельного экрана «Задания»). */
+    val activeTasks = db.tasks().activeTasks()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     // Открытый на просмотр документ (заказ/оплата). Экран «Отправленные»
     // открывает его двойным кликом; строки заказа подтягиваются с именами
     // товаров из каталога.

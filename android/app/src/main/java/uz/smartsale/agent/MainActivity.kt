@@ -27,6 +27,7 @@ import uz.smartsale.agent.ui.OrderScreen
 import uz.smartsale.agent.ui.RouteScreen
 import uz.smartsale.agent.ui.SentDocsScreen
 import uz.smartsale.agent.ui.SyncScreen
+import uz.smartsale.agent.ui.ЗаданияScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,7 +36,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Экран { Маршрут, Клиент, Заказ, Обмен, Документы }
+private enum class Экран { Маршрут, Клиент, Заказ, Обмен, Документы, Задания }
 
 @Composable
 private fun Root(vm: AgentViewModel = viewModel()) {
@@ -61,12 +62,18 @@ private fun Root(vm: AgentViewModel = viewModel()) {
         bottomBar = {
             // Нижняя панель прячется на экранах заказа и карточки клиента:
             // уход с них посреди набора корзины теряет несохранённый заказ.
-            if (экран == Экран.Маршрут || экран == Экран.Обмен || экран == Экран.Документы) {
+            if (экран == Экран.Маршрут || экран == Экран.Обмен
+                || экран == Экран.Документы || экран == Экран.Задания) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = экран == Экран.Маршрут,
                         onClick = { экран = Экран.Маршрут },
                         icon = {}, label = { Text("Клиенты") },
+                    )
+                    NavigationBarItem(
+                        selected = экран == Экран.Задания,
+                        onClick = { экран = Экран.Задания },
+                        icon = {}, label = { Text("Задания") },
                     )
                     NavigationBarItem(
                         selected = экран == Экран.Документы,
@@ -105,6 +112,9 @@ private fun Root(vm: AgentViewModel = viewModel()) {
             }
             Экран.Документы -> androidx.compose.foundation.layout.Box(модификатор) {
                 SentDocsScreen(vm)
+            }
+            Экран.Задания -> androidx.compose.foundation.layout.Box(модификатор) {
+                ЗаданияScreen(vm)
             }
         }
     }
