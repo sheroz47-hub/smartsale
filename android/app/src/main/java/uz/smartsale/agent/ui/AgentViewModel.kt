@@ -140,10 +140,15 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
     private var _bonusInfo: Map<String, Pair<String, String>> = emptyMap()
 
     init {
-        // Пересчёт скидок при любом изменении корзины: агент видит акцию сразу,
-        // как набрал позицию (ровно то, чего не было в Моби-С).
-        viewModelScope.launch { _cart.collect { пересчитатьЦены(it) } }
+        // Скидки НЕ считаем на каждый ввод: агент набирает заказ, а расчёт
+        // скидок и бонусов запускает кнопкой по окончании (рассчитатьСкидки).
+        // Любое изменение корзины сбрасывает прошлый расчёт — чтобы на экране
+        // не осталась устаревшая скидка от прежнего состава.
+        viewModelScope.launch { _cart.collect { _pricedCart.value = PricedCart() } }
     }
+
+    /** Явный расчёт скидок и бонусов — по кнопке, когда заказ набран. */
+    fun рассчитатьСкидки() = пересчитатьЦены(_cart.value)
 
     fun openCustomer(uuid: String) = viewModelScope.launch {
         _currentCustomer.value = db.customers().byUuid(uuid)

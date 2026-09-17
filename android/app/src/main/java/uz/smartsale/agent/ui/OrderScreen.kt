@@ -84,22 +84,10 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
             Column(Modifier.fillMaxWidth().padding(12.dp)) {
                 Row(Modifier.fillMaxWidth()) {
                     Text("Позиций: ${корзина.size}", modifier = Modifier.weight(1f))
-                    Text(деньги(цены.total.toPlainString()),
+                    // Сумма без скидок: скидки и бонусы считаются по кнопке ниже
+                    // и показываются в окне проверки перед отправкой.
+                    Text(деньги(vm.cartTotal.toPlainString()),
                         fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                }
-                // Скидка по акциям — видна агенту сразу, как набрал позиции.
-                if (цены.discount > BigDecimal.ZERO) {
-                    Row(Modifier.fillMaxWidth()) {
-                        Text("Скидка по акциям", modifier = Modifier.weight(1f),
-                            fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
-                        Text("−${деньги(цены.discount.toPlainString())}",
-                            fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                // Бонусные товары от акций «купи N — получи M».
-                цены.bonuses.forEach { бонус ->
-                    Text("Бонус: ${бонус.name} × ${бонус.qty.toPlainString()}",
-                        fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
                 }
                 OutlinedTextField(
                     value = примечание, onValueChange = { примечание = it },
@@ -111,10 +99,15 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
                         Text("Отмена")
                     }
                     Button(
-                        onClick = { показатьПроверку = true },
+                        onClick = {
+                            // Явный расчёт по окончании набора, затем окно
+                            // проверки со скидками, бонусами и итогом.
+                            vm.рассчитатьСкидки()
+                            показатьПроверку = true
+                        },
                         enabled = корзина.isNotEmpty(),
                         modifier = Modifier.weight(2f),
-                    ) { Text("Проверить и записать") }
+                    ) { Text("Рассчитать скидки и бонусы") }
                 }
             }
         }
