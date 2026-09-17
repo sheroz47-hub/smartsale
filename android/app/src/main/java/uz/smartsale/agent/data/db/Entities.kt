@@ -91,6 +91,9 @@ data class CustomerEntity(
     val debt: String,
     val overdue: String,
     val active: Boolean,
+    /** Есть ли у клиента действующий договор в УТ. Без него УТ не примет заказ
+     *  и оплату, поэтому оформление по клиенту в приложении запрещается. */
+    val hasContract: Boolean = true,
 )
 
 @Entity(tableName = "route_stops", primaryKeys = ["weekday", "customerUuid"])

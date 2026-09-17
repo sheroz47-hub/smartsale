@@ -140,6 +140,7 @@ data class CustomerDto(
     @SerialName("deferral_days") val deferralDays: Int,
     val blocked: Boolean,
     @SerialName("blocked_reason") val blockedReason: String,
+    @SerialName("has_contract") val hasContract: Boolean = true,
     val debt: String, val overdue: String, val active: Boolean,
 )
 

@@ -42,6 +42,7 @@ import java.math.BigDecimal
 fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
     var поиск by remember { mutableStateOf("") }
     var примечание by remember { mutableStateOf("") }
+    var показатьПроверку by remember { mutableStateOf(false) }
     val клиент by vm.currentCustomer.collectAsState()
     val корзина by vm.cart.collectAsState()
     val цены by vm.pricedCart.collectAsState()
@@ -110,20 +111,85 @@ fun OrderScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
                         Text("Отмена")
                     }
                     Button(
-                        onClick = {
-                            vm.saveOrder(
-                                paymentType = клиент?.paymentType ?: "cash",
-                                comment = примечание,
-                                onDone = onDone,
-                            )
-                        },
+                        onClick = { показатьПроверку = true },
                         enabled = корзина.isNotEmpty(),
                         modifier = Modifier.weight(2f),
-                    ) { Text("Записать заказ") }
+                    ) { Text("Проверить и записать") }
                 }
             }
         }
+
+        if (показатьПроверку) {
+            ПроверкаЗаказа(
+                цены = цены,
+                onConfirm = {
+                    показатьПроверку = false
+                    vm.saveOrder(
+                        paymentType = клиент?.paymentType ?: "cash",
+                        comment = примечание,
+                        onDone = onDone,
+                    )
+                },
+                onDismiss = { показатьПроверку = false },
+            )
+        }
     }
+}
+
+/** Просмотр полного заказа перед отправкой: позиции со скидкой, бонусы, итог. */
+@Composable
+private fun ПроверкаЗаказа(
+    цены: PricedCart,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Проверьте заказ") },
+        text = {
+            LazyColumn {
+                items(цены.lines, key = { it.product.uuid }) { строка ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text(строка.product.name, fontSize = 14.sp)
+                            val подпись = "${строка.qty.toPlainString()} × " +
+                                деньги(строка.product.price) +
+                                if (строка.discountPercent > BigDecimal.ZERO)
+                                    "  −${строка.discountPercent.toPlainString()}%" else ""
+                            Text(подпись, fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.outline)
+                        }
+                        Text(деньги(строка.amount.toPlainString()),
+                            fontWeight = FontWeight.Medium)
+                    }
+                }
+                items(цены.bonuses, key = { it.productUuid }) { бонус ->
+                    Text("🎁 ${бонус.name} × ${бонус.qty.toPlainString()} (бонус)",
+                        fontSize = 13.sp, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(vertical = 3.dp))
+                }
+            }
+        },
+        confirmButton = {
+            Column(Modifier.fillMaxWidth()) {
+                if (цены.discount > BigDecimal.ZERO) {
+                    Text("Скидка: −${деньги(цены.discount.toPlainString())}",
+                        fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                }
+                Text("Итого: ${деньги(цены.total.toPlainString())}",
+                    fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                    modifier = Modifier.padding(bottom = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                        Text("Изменить")
+                    }
+                    Button(onClick = onConfirm, modifier = Modifier.weight(1f)) {
+                        Text("Отправить")
+                    }
+                }
+            }
+        },
+    )
 }
 
 @Composable

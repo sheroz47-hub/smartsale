@@ -101,6 +101,9 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
     val recentOrders = db.documents().recentOrders()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    val recentPayments = db.documents().recentPayments()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
 
@@ -286,6 +289,13 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
                 _message.value = "Клиент в стопе: ${клиент.blockedReason}"
                 return@launch
             }
+            if (!клиент.hasContract) {
+                // Без договора УТ заказ не примет (расчёты по договорам) —
+                // отсекаем в точке, а не отказом на следующий день.
+                _message.value = "У клиента нет договора — заказ оформить нельзя. " +
+                    "Сообщите в офис."
+                return@launch
+            }
 
             // Пересчитываем перед сохранением: последний ввод количества мог
             // не успеть отразиться в _pricedCart (пересчёт идёт асинхронно на
@@ -323,6 +333,10 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
 
     fun savePayment(amount: String, kind: String, comment: String) = viewModelScope.launch {
         val клиент = _currentCustomer.value ?: return@launch
+        if (!клиент.hasContract) {
+            _message.value = "У клиента нет договора — оплату оформить нельзя."
+            return@launch
+        }
         val сумма = amount.replace(" ", "").replace(",", ".").toBigDecimalOrNull()
         if (сумма == null || сумма <= BigDecimal.ZERO) {
             _message.value = "Неверная сумма"

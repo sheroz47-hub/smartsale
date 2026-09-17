@@ -140,6 +140,9 @@ interface DocumentDao {
     @Query("SELECT * FROM orders ORDER BY createdAt DESC LIMIT 100")
     fun recentOrders(): Flow<List<OrderEntity>>
 
+    @Query("SELECT * FROM payments ORDER BY createdAt DESC LIMIT 100")
+    fun recentPayments(): Flow<List<PaymentEntity>>
+
     @Query("SELECT COUNT(*) FROM orders WHERE synced = 0")
     fun pendingOrderCount(): Flow<Int>
 

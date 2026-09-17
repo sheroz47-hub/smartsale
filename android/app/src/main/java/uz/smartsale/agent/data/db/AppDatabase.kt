@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PromotionEntity::class, PromotionProductEntity::class,
         PromotionThresholdEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -71,6 +71,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v2 → v3: у клиента признак наличия действующего договора. Существующим
+        // строкам — 1 (по умолчанию разрешено), обмен перепишет из УТ.
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `customers` ADD COLUMN `hasContract` " +
+                        "INTEGER NOT NULL DEFAULT 1"
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, AppDatabase::class.java, "smartsale.db"
@@ -78,7 +89,7 @@ abstract class AppDatabase : RoomDatabase() {
                 // Миграции обязательны с первого же обновления. Разрушающая
                 // пересборка здесь не годится: в базе лежат неотправленные
                 // заказы, и потерять их — потерять день работы агента.
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
                 .also { instance = it }
         }

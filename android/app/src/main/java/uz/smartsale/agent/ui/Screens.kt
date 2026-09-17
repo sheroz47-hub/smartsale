@@ -1,5 +1,6 @@
 package uz.smartsale.agent.ui
 
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.smartsale.agent.data.db.CustomerEntity
+import uz.smartsale.agent.data.db.OrderEntity
+import uz.smartsale.agent.data.db.PaymentEntity
 import java.math.BigDecimal
 
 /** Суммы с разделителями разрядов: в сумах они длинные. */
@@ -212,9 +215,16 @@ private fun ДеньНедели(имя: String, выбран: Boolean, есть
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun CustomerRow(клиент: CustomerEntity, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
+    // Открытие по двойному клику: одиночный тап в длинном списке легко
+    // случается при прокрутке. Кнопка «Открыть» оставлена для явного действия.
+    Column(
+        Modifier.fillMaxWidth()
+            .combinedClickable(onClick = {}, onDoubleClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
         Row(Modifier.fillMaxWidth()) {
             Text(клиент.name, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             TextButton(onClick = onClick) { Text("Открыть") }
@@ -266,10 +276,17 @@ fun CustomerScreen(vm: AgentViewModel, onOrder: () -> Unit, onBack: () -> Unit) 
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 8.dp))
                 }
+                if (!текущий.hasContract) {
+                    Text("Нет договора — заказ и оплату оформить нельзя. " +
+                        "Сообщите в офис.",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp))
+                }
             }
         }
 
-        Button(onClick = onOrder, enabled = !текущий.blocked,
+        Button(onClick = onOrder, enabled = !текущий.blocked && текущий.hasContract,
             modifier = Modifier.fillMaxWidth()) {
             Text("Оформить заказ")
         }
@@ -316,5 +333,74 @@ private fun Строка(подпись: String, значение: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Text(подпись, color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f))
         Text(значение, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** Отправленные документы: заказы и оплаты с их состоянием и номером в учёте. */
+@Composable
+fun SentDocsScreen(vm: AgentViewModel) {
+    val заказы by vm.recentOrders.collectAsState()
+    val оплаты by vm.recentPayments.collectAsState()
+
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+        item {
+            Text("Заказы", fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+        }
+        if (заказы.isEmpty()) {
+            item { Text("нет", color = MaterialTheme.colorScheme.outline) }
+        }
+        items(заказы, key = { it.clientUid }) { з ->
+            ДокументСтрока(
+                номер = if (з.serverNumber.isNotBlank()) "№ ${з.serverNumber}" else "не отправлен",
+                дата = з.date,
+                сумма = з.amount,
+                состояние = состояниеЗаказа(з),
+                ошибка = з.error,
+            )
+            HorizontalDivider()
+        }
+        item {
+            Text("Оплаты", fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
+        }
+        if (оплаты.isEmpty()) {
+            item { Text("нет", color = MaterialTheme.colorScheme.outline) }
+        }
+        items(оплаты, key = { it.clientUid }) { о ->
+            ДокументСтрока(
+                номер = if (о.serverNumber.isNotBlank()) "№ ${о.serverNumber}" else "не отправлена",
+                дата = о.date,
+                сумма = о.amount,
+                состояние = if (о.synced) "отправлена" else if (о.error.isNotBlank()) "ошибка" else "в очереди",
+                ошибка = о.error,
+            )
+            HorizontalDivider()
+        }
+    }
+}
+
+private fun состояниеЗаказа(з: OrderEntity): String = when {
+    !з.synced && з.error.isNotBlank() -> "ошибка"
+    !з.synced -> "в очереди"
+    з.serverStatus.isNotBlank() -> з.serverStatus
+    else -> "отправлен"
+}
+
+@Composable
+private fun ДокументСтрока(номер: String, дата: String, сумма: String,
+                           состояние: String, ошибка: String) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(номер, fontWeight = FontWeight.Medium)
+                Text("$дата · $состояние", fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.outline)
+            }
+            Text(деньги(сумма), fontWeight = FontWeight.Medium)
+        }
+        if (ошибка.isNotBlank()) {
+            Text(ошибка, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+        }
     }
 }

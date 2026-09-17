@@ -25,6 +25,7 @@ import uz.smartsale.agent.ui.CustomerScreen
 import uz.smartsale.agent.ui.LoginScreen
 import uz.smartsale.agent.ui.OrderScreen
 import uz.smartsale.agent.ui.RouteScreen
+import uz.smartsale.agent.ui.SentDocsScreen
 import uz.smartsale.agent.ui.SyncScreen
 
 class MainActivity : ComponentActivity() {
@@ -34,7 +35,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Экран { Маршрут, Клиент, Заказ, Обмен }
+private enum class Экран { Маршрут, Клиент, Заказ, Обмен, Документы }
 
 @Composable
 private fun Root(vm: AgentViewModel = viewModel()) {
@@ -60,12 +61,17 @@ private fun Root(vm: AgentViewModel = viewModel()) {
         bottomBar = {
             // Нижняя панель прячется на экранах заказа и карточки клиента:
             // уход с них посреди набора корзины теряет несохранённый заказ.
-            if (экран == Экран.Маршрут || экран == Экран.Обмен) {
+            if (экран == Экран.Маршрут || экран == Экран.Обмен || экран == Экран.Документы) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = экран == Экран.Маршрут,
                         onClick = { экран = Экран.Маршрут },
                         icon = {}, label = { Text("Клиенты") },
+                    )
+                    NavigationBarItem(
+                        selected = экран == Экран.Документы,
+                        onClick = { экран = Экран.Документы },
+                        icon = {}, label = { Text("Отправленные") },
                     )
                     NavigationBarItem(
                         selected = экран == Экран.Обмен,
@@ -96,6 +102,9 @@ private fun Root(vm: AgentViewModel = viewModel()) {
             }
             Экран.Обмен -> androidx.compose.foundation.layout.Box(модификатор) {
                 SyncScreen(vm)
+            }
+            Экран.Документы -> androidx.compose.foundation.layout.Box(модификатор) {
+                SentDocsScreen(vm)
             }
         }
     }

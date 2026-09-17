@@ -359,6 +359,11 @@ class Customer(Base, Timestamped):
     blocked: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     blocked_reason: Mapped[str] = mapped_column(String(255), default="")
 
+    # Есть ли у клиента действующий договор в УТ. Взаиморасчёты ведутся по
+    # договорам: без него УТ не примет ни заказ, ни оплату, поэтому агенту
+    # оформление по такому клиенту запрещается ещё в приложении.
+    has_contract: Mapped[bool] = mapped_column(Boolean, default=True)
+
     comment: Mapped[str] = mapped_column(Text, default="")
     active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime.datetime] = mapped_column(

@@ -308,6 +308,7 @@ def _принять_клиентов(session: Session) -> None:
         # (агент ещё не заведён в кабинете) → клиент без агента, в приложении
         # не покажется, пока агента не создадут.
         к.agent_id = агенты.get(э.get("manager_uid"))
+        к.has_contract = bool(э.get("has_contract", True))
         к.active = bool(э.get("active", True))
         # payment_type, credit_limit, deferral_days, blocked ведутся в кабинете
         # SmartSale — при обновлении из УТ не трогаем.

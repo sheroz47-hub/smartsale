@@ -223,7 +223,8 @@ class Repository(private val context: Context) {
                     CustomerEntity(it.uuid, it.code, it.name, it.legalName, it.inn,
                         it.phone, it.address, it.lat, it.lon, it.priceTypeUuid,
                         it.paymentType, it.creditLimit, it.deferralDays, it.blocked,
-                        it.blockedReason, it.debt, it.overdue, it.active)
+                        it.blockedReason, it.debt, it.overdue, it.active,
+                        it.hasContract)
                 })
             }
 
