@@ -388,6 +388,44 @@
 
 КонецФункции
 
+// Клик по маркеру на карте (событие OnClick поля HTML). У каждого маркера id
+// вида «sel_<уид клиента>»; по нему отмечаем клиента в таблице «Клиенты агента»
+// и подсвечиваем строку — дальше «Добавить в маршрут». Мост HTML→1С работает
+// только в тонком клиенте; клики по тайлам/линии (без нашего id) игнорируем.
+&НаКлиенте
+Процедура ПолеБраузерПриНажатии(Элемент, ДанныеСобытия, СтандартнаяОбработка)
+
+	Попытка
+		КликнутыйЭлемент = ДанныеСобытия.Button;
+	Исключение
+		Возврат;
+	КонецПопытки;
+	Если КликнутыйЭлемент = Неопределено Или КликнутыйЭлемент = NULL Тогда
+		Возврат;
+	КонецЕсли;
+
+	Попытка
+		ИдЭлемента = Строка(КликнутыйЭлемент.id);
+	Исключение
+		Возврат;
+	КонецПопытки;
+
+	Префикс = "sel_";
+	Если Не СтрНачинаетсяС(ИдЭлемента, Префикс) Тогда
+		Возврат;
+	КонецЕсли;
+	УИДКлиента = Сред(ИдЭлемента, СтрДлина(Префикс) + 1);
+
+	Для Каждого СтрокаКлиента Из Клиенты Цикл
+		Если Строка(СтрокаКлиента.Клиент.УникальныйИдентификатор()) = УИДКлиента Тогда
+			СтрокаКлиента.Пометка = НЕ СтрокаКлиента.Пометка;
+			Элементы.Клиенты.ТекущаяСтрока = СтрокаКлиента.ПолучитьИдентификатор();
+			Прервать;
+		КонецЕсли;
+	КонецЦикла;
+
+КонецПроцедуры
+
 // Точки для карты: все клиенты агента с координатами; у входящих в маршрут —
 // поле ord (позиция), у остальных ord = 0 (серый маркер).
 &НаСервере
@@ -409,6 +447,7 @@
 		Точка.Вставить("lat", СтрокаКлиента.Широта);
 		Точка.Вставить("lon", СтрокаКлиента.Долгота);
 		Точка.Вставить("name", СтрокаКлиента.Наименование);
+		Точка.Вставить("uid", Строка(СтрокаКлиента.Клиент.УникальныйИдентификатор()));
 		НомерТочки = ПорядокПоКлиенту.Получить(СтрокаКлиента.Клиент);
 		Точка.Вставить("ord", ?(НомерТочки = Неопределено, 0, НомерТочки));
 		Точки.Добавить(Точка);
@@ -439,9 +478,11 @@
 	|  font:13px Arial,sans-serif;max-width:240px}
 	|.panel b{color:#c0392b}
 	|.panel a{display:none;margin-top:6px;color:#2c6fbb;text-decoration:none}
-	|.leaflet-tooltip.ord{background:#c0392b;color:#fff;border:0;font-weight:bold;
-	|  padding:0 6px;border-radius:9px}
-	|.leaflet-tooltip.ord:before{display:none}
+	|.mk{width:14px;height:14px;border-radius:50%;background:#bbb;
+	|  border:2px solid #888;box-sizing:border-box;cursor:pointer}
+	|.mk.rt{width:auto;height:auto;min-width:16px;border-radius:9px;
+	|  background:#c0392b;border:0;color:#fff;font:bold 12px Arial;
+	|  text-align:center;padding:1px 6px;line-height:16px;cursor:pointer}
 	|</style>
 	|</head><body>
 	|<div id=""map""></div>
@@ -467,8 +508,9 @@
 	|  var la=parseFloat(p.lat), lo=parseFloat(p.lon);
 	|  if(isNaN(la)||isNaN(lo)) return;
 	|  if(!(p.ord>0)){
-	|    L.circleMarker([la,lo],{radius:5,color:'#888',weight:1,fillColor:'#bbb',
-	|      fillOpacity:0.7}).addTo(map).bindPopup(p.name);
+	|    var ic=L.divIcon({className:'',iconSize:[14,14],iconAnchor:[7,7],
+	|      html:'<div id=""sel_'+p.uid+'"" class=""mk"" title=""'+p.name+'""></div>'});
+	|    L.marker([la,lo],{icon:ic}).addTo(map);
 	|    all.push([la,lo]);
 	|  }
 	|});
@@ -478,10 +520,9 @@
 	|route.forEach(function(p){
 	|  var la=parseFloat(p.lat), lo=parseFloat(p.lon);
 	|  if(isNaN(la)||isNaN(lo)) return;
-	|  var m=L.marker([la,lo]).addTo(map);
-	|  m.bindTooltip(String(p.ord),{permanent:true,direction:'top',className:'ord'});
-	|  m.openTooltip();
-	|  m.bindPopup(p.ord+'. '+p.name);
+	|  var ic=L.divIcon({className:'',iconSize:null,
+	|    html:'<div id=""sel_'+p.uid+'"" class=""mk rt"" title=""'+p.name+'"">'+p.ord+'</div>'});
+	|  L.marker([la,lo],{icon:ic}).addTo(map);
 	|  coords.push([la,lo]); all.push([la,lo]);
 	|});
 	|for(var i=1;i<coords.length;i++){ total+=dist(coords[i-1],coords[i]); }

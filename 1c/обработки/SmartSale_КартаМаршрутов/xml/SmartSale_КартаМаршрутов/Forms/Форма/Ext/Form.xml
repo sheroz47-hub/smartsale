@@ -180,6 +180,9 @@
 					<VerticalStretch>true</VerticalStretch>
 					<ContextMenu name="ПолеБраузерКонтекстноеМеню" id="58"/>
 					<ExtendedTooltip name="ПолеБраузерРасширеннаяПодсказка" id="59"/>
+					<Events>
+						<Event name="OnClick">ПолеБраузерПриНажатии</Event>
+					</Events>
 				</HTMLDocumentField>
 			</ChildItems>
 			<ExtendedTooltip name="ГруппаРабочаяРасширеннаяПодсказка" id="60"/>
