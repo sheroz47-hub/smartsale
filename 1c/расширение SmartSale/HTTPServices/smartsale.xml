@@ -361,6 +361,25 @@
 					</Method>
 				</ChildObjects>
 			</URLTemplate>
+			<URLTemplate uuid="c9f62d51-832f-482f-a82f-88000000002a">
+				<Properties>
+					<Name>agent_track</Name>
+					<Synonym><v8:item><v8:lang>ru</v8:lang><v8:content>Трек агента</v8:content></v8:item></Synonym>
+					<Comment/>
+					<Template>/agent_track</Template>
+				</Properties>
+				<ChildObjects>
+					<Method uuid="c9f62d51-8330-4830-a830-88000000002b">
+						<Properties>
+							<Name>post</Name>
+							<Synonym><v8:item><v8:lang>ru</v8:lang><v8:content>POST</v8:content></v8:item></Synonym>
+							<Comment/>
+							<HTTPMethod>POST</HTTPMethod>
+							<Handler>agentTrackPOST</Handler>
+						</Properties>
+					</Method>
+				</ChildObjects>
+			</URLTemplate>
 		</ChildObjects>
 	</HTTPService>
 </MetaDataObject>

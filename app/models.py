@@ -600,6 +600,37 @@ class CustomerGeoPush(Base):
         DateTime(timezone=True), server_default=func.now())
 
 
+class AgentTrack(Base):
+    """Точки трека агента, ждущие отправки в УТ (транзитный буфер шины).
+
+    Телефон в рабочие часы фоново снимает своё положение (интервал ~3 мин) и
+    шлёт пачкой при обмене — так видно, где агент, сколько пробыл у клиента и
+    каким маршрутом реально прошёл. Сервер трек НЕ хранит: строка живёт от
+    приёма до успешной отправки в регистр УТ SmartSale_ТрекАгента, после чего
+    удаляется. Ключ идемпотентности — (агент, момент съёма): повторная доставка
+    одной точки (обрыв связи в поле) второй записи не создаёт. История и
+    хранение (ретенция 90 дней) — на стороне УТ, сервер только шина.
+
+    Координаты строками, как везде в обмене: так доезжают без потери точности.
+    """
+
+    __tablename__ = "agent_track"
+    __table_args__ = (
+        UniqueConstraint("agent_id", "recorded_at", name="uq_agent_track"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    agent_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    recorded_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), index=True)
+    lat: Mapped[str] = mapped_column(String(32), default="")
+    lon: Mapped[str] = mapped_column(String(32), default="")
+    accuracy: Mapped[str] = mapped_column(String(16), default="")
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+
 # --- заказы ------------------------------------------------------------------
 
 class Order(Base, Timestamped):

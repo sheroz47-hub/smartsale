@@ -34,10 +34,10 @@ from .auth import (
 from .config import CURRENCY, REQUIRE_VISIT_GPS, SYNC_PAGE_SIZE
 from .db import get_session
 from .models import (
-    Audit, AuditAnswer, AuditQuestion, ClientRequest, Customer, CustomerGeoPush,
-    Device, Order, OrderLine, Payment, Price, PriceType, Product, ProductCategory,
-    Promotion, Route, RouteStop, Stock, SyncLog, Task, TaskPhoto, User, Visit,
-    Warehouse,
+    AgentTrack, Audit, AuditAnswer, AuditQuestion, ClientRequest, Customer,
+    CustomerGeoPush, Device, Order, OrderLine, Payment, Price, PriceType, Product,
+    ProductCategory, Promotion, Route, RouteStop, Stock, SyncLog, Task, TaskPhoto,
+    User, Visit, Warehouse,
 )
 
 # Предел размера одного фото. Снимок сжимается на телефоне; на шине это ещё и
@@ -454,6 +454,13 @@ class ЗаявкаКлиента(BaseModel):
     comment: str = ""
 
 
+class ТочкаТрека(BaseModel):
+    recorded_at: str
+    lat: str = ""
+    lon: str = ""
+    accuracy: str = ""
+
+
 class ПакетОтправки(BaseModel):
     orders: list[ЗаказСТелефона] = []
     payments: list[ОплатаСТелефона] = []
@@ -462,6 +469,7 @@ class ПакетОтправки(BaseModel):
     locations: list[ЛокацияКлиента] = []
     audits: list[АудитСТелефона] = []
     client_requests: list[ЗаявкаКлиента] = []
+    track: list[ТочкаТрека] = []
 
 
 @router.post("/sync/push")
@@ -476,7 +484,7 @@ def push(пакет: ПакетОтправки, device: Device = Depends(curren
     начало = time.monotonic()
     агент: User = device.user
     результат = {"orders": [], "payments": [], "visits": [], "tasks": [],
-                 "locations": [], "audits": [], "client_requests": []}
+                 "locations": [], "audits": [], "client_requests": [], "track": []}
 
     for заказ in пакет.orders:
         результат["orders"].append(_принять_заказ(session, агент, заказ))
@@ -492,6 +500,8 @@ def push(пакет: ПакетОтправки, device: Device = Depends(curren
         результат["audits"].append(_принять_аудит(session, агент, аудит))
     for заявка in пакет.client_requests:
         результат["client_requests"].append(_принять_заявку_клиента(session, агент, заявка))
+    for точка in пакет.track:
+        результат["track"].append(_принять_точку_трека(session, агент, точка))
 
     session.add(SyncLog(
         device_id=device.id, user_id=агент.id, direction="push",
@@ -729,6 +739,42 @@ def _принять_локацию(session: Session, агент: User,
     буфер.at = datetime.now(timezone.utc)
 
     return {"customer_uuid": данные.customer_uuid, "status": "accepted"}
+
+
+def _принять_точку_трека(session: Session, агент: User,
+                         данные: ТочкаТрека) -> dict:
+    """Одна точка трека агента в транзитный буфер. Идемпотентно по (агент,
+    момент съёма): повторная доставка той же точки дубль не создаёт. Историю и
+    ретенцию держит УТ — сервер только шина (push_to_ut отправит и удалит).
+
+    flush после вставки — чтобы дубль в пределах одной пачки нашёлся выборкой и
+    не уронил весь push нарушением уникального ключа при коммите.
+    """
+    try:
+        момент = datetime.fromisoformat(
+            (данные.recorded_at or "").strip().replace("Z", "+00:00"))
+    except ValueError:
+        return {"recorded_at": данные.recorded_at, "status": "rejected",
+                "error": "неверный момент"}
+    if момент.tzinfo is None:
+        момент = момент.replace(tzinfo=timezone.utc)
+
+    if _коорд(данные.lat) is None or _коорд(данные.lon) is None:
+        return {"recorded_at": данные.recorded_at, "status": "rejected",
+                "error": "неверные координаты"}
+
+    существующая = session.scalar(
+        select(AgentTrack).where(AgentTrack.agent_id == агент.id,
+                                 AgentTrack.recorded_at == момент))
+    if существующая is None:
+        session.add(AgentTrack(
+            agent_id=агент.id, recorded_at=момент,
+            lat=данные.lat.strip().replace(",", "."),
+            lon=данные.lon.strip().replace(",", "."),
+            accuracy=(данные.accuracy or "").strip()))
+        session.flush()
+
+    return {"recorded_at": данные.recorded_at, "status": "accepted"}
 
 
 def _принять_аудит(session: Session, агент: User, данные: АудитСТелефона) -> dict:

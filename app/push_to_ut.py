@@ -31,8 +31,8 @@ from sqlalchemy.orm import Session  # noqa: E402
 from . import ut_client  # noqa: E402
 from .db import SessionLocal, engine  # noqa: E402
 from .models import (  # noqa: E402
-    Audit, Base, ClientRequest, Customer, CustomerGeoPush, Order, Payment,
-    Product, Task, TaskPhoto, User, UtExport,
+    AgentTrack, Audit, Base, ClientRequest, Customer, CustomerGeoPush, Order,
+    Payment, Product, Task, TaskPhoto, User, UtExport,
 )
 
 log = logging.getLogger("push_to_ut")
@@ -293,6 +293,57 @@ def _отправить_координаты(session: Session) -> int:
     return 0
 
 
+def _отправить_трек(session: Session) -> int:
+    """Точки трека агентов в УТ (метод /agent_track, пачкой до 1000).
+
+    В УТ регистр периодический по (период съёма, пользователь) — запись
+    идемпотентна, повтор перезаписывает. Поэтому принятые точки удаляем сразу:
+    история и ретенция (90 дней) живут в регистре УТ, сервер только шина.
+    В каждой точке передаём её серверный id, УТ возвращает accepted_ids —
+    удаляем ровно принятые, «зависшие» из-за сбоя останутся на следующий прогон.
+    """
+    точки = session.scalars(
+        select(AgentTrack).order_by(AgentTrack.id).limit(1000)).all()
+    if not точки:
+        return 0
+
+    агенты = {п.id: п.uuid for п in session.scalars(select(User)).all()}
+    пакет = {"points": []}
+    for т in точки:
+        agent_uid = агенты.get(т.agent_id)
+        if not agent_uid:
+            # агент без uuid УТ — трек девать некуда, убираем из очереди
+            session.delete(т)
+            continue
+        пакет["points"].append({
+            "id": т.id,
+            "agent_uid": agent_uid,
+            "recorded_at": т.recorded_at.isoformat(),
+            "lat": т.lat,
+            "lon": т.lon,
+            "accuracy": т.accuracy,
+        })
+
+    if not пакет["points"]:
+        session.commit()
+        return 0
+
+    try:
+        ответ = ut_client.отправить("agent_track", пакет)
+    except ut_client.ОшибкаУТ:
+        log.exception("отправка трека агентов не удалась")
+        return 1
+
+    принятые = set(ответ.get("accepted_ids", []))
+    if принятые:
+        session.execute(delete(AgentTrack).where(AgentTrack.id.in_(принятые)))
+    непринятых = len(пакет["points"]) - len(принятые)
+    if непринятых > 0:
+        log.warning("трек: УТ не принял %s точек, оставлены в очереди", непринятых)
+    session.commit()
+    return 0
+
+
 def _отправить_аудиты(session: Session) -> int:
     """Результаты аудита точек в УТ (метод /audits, пачкой). Идемпотентность —
     флагом Audit.pushed (ключ — client_uid). Принято или отклонено по существу
@@ -441,6 +492,12 @@ def run_push() -> int:
             ошибок += 1
             session.rollback()
             log.exception("сбой отправки заявок на клиентов")
+        try:
+            ошибок += _отправить_трек(session)
+        except Exception:
+            ошибок += 1
+            session.rollback()
+            log.exception("сбой отправки трека агентов")
     return ошибок
 
 
