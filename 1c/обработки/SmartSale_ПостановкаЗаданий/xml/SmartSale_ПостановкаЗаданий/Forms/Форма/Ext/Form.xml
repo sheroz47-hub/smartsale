@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Form xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcssch="http://v8.1c.ru/8.1/data-composition-system/schema" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.20">
+	<Title>
+		<v8:item>
+			<v8:lang>ru</v8:lang>
+			<v8:content>SmartSale: постановка заданий</v8:content>
+		</v8:item>
+	</Title>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
+	<Events>
+		<Event name="OnCreateAtServer">ПриСозданииНаСервере</Event>
+	</Events>
+	<ChildItems>
+		<InputField name="ДатаВизита" id="1">
+			<DataPath>ДатаВизита</DataPath>
+			<ContextMenu name="ДатаВизитаКонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="ДатаВизитаРасширеннаяПодсказка" id="3"/>
+		</InputField>
+		<InputField name="Агент" id="4">
+			<DataPath>Агент</DataPath>
+			<ContextMenu name="АгентКонтекстноеМеню" id="5"/>
+			<ExtendedTooltip name="АгентРасширеннаяПодсказка" id="6"/>
+		</InputField>
+		<InputField name="ОтборНаименования" id="7">
+			<DataPath>ОтборНаименования</DataPath>
+			<ContextMenu name="ОтборНаименованияКонтекстноеМеню" id="8"/>
+			<ExtendedTooltip name="ОтборНаименованияРасширеннаяПодсказка" id="9"/>
+		</InputField>
+		<InputField name="ОписаниеЗадачи" id="10">
+			<DataPath>ОписаниеЗадачи</DataPath>
+			<MultiLine>true</MultiLine>
+			<Height>2</Height>
+			<ContextMenu name="ОписаниеЗадачиКонтекстноеМеню" id="11"/>
+			<ExtendedTooltip name="ОписаниеЗадачиРасширеннаяПодсказка" id="12"/>
+		</InputField>
+		<UsualGroup name="ГруппаКоманды" id="13">
+			<Group>Horizontal</Group>
+			<ShowTitle>false</ShowTitle>
+			<Representation>None</Representation>
+			<ChildItems>
+				<Button name="ЗаполнитьКлиентов" id="14">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.ЗаполнитьКлиентов</CommandName>
+					<DefaultButton>true</DefaultButton>
+					<ExtendedTooltip name="ЗаполнитьКлиентовРасширеннаяПодсказка" id="15"/>
+				</Button>
+				<Button name="ОтметитьВсе" id="16">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.ОтметитьВсе</CommandName>
+					<ExtendedTooltip name="ОтметитьВсеРасширеннаяПодсказка" id="17"/>
+				</Button>
+				<Button name="СнятьВсе" id="18">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.СнятьВсе</CommandName>
+					<ExtendedTooltip name="СнятьВсеРасширеннаяПодсказка" id="19"/>
+				</Button>
+				<Button name="ПоставитьЗадания" id="20">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.ПоставитьЗадания</CommandName>
+					<ExtendedTooltip name="ПоставитьЗаданияРасширеннаяПодсказка" id="21"/>
+				</Button>
+			</ChildItems>
+			<ExtendedTooltip name="ГруппаКомандыРасширеннаяПодсказка" id="22"/>
+		</UsualGroup>
+		<Table name="Клиенты" id="23">
+			<DataPath>Клиенты</DataPath>
+			<Representation>List</Representation>
+			<AutoMaxHeight>false</AutoMaxHeight>
+			<Height>12</Height>
+			<ChangeRowSet>false</ChangeRowSet>
+			<ChangeRowOrder>false</ChangeRowOrder>
+			<CommandBarLocation>None</CommandBarLocation>
+			<ChildItems>
+				<CheckBoxField name="КлиентыПометка" id="24">
+					<DataPath>Клиенты.Пометка</DataPath>
+					<CheckBoxType>Auto</CheckBoxType>
+					<ContextMenu name="КлиентыПометкаКонтекстноеМеню" id="25"/>
+					<ExtendedTooltip name="КлиентыПометкаРасширеннаяПодсказка" id="26"/>
+				</CheckBoxField>
+				<InputField name="КлиентыНаименование" id="27">
+					<DataPath>Клиенты.Наименование</DataPath>
+					<ReadOnly>true</ReadOnly>
+					<ContextMenu name="КлиентыНаименованиеКонтекстноеМеню" id="28"/>
+					<ExtendedTooltip name="КлиентыНаименованиеРасширеннаяПодсказка" id="29"/>
+				</InputField>
+				<InputField name="КлиентыРезультат" id="30">
+					<DataPath>Клиенты.Результат</DataPath>
+					<ReadOnly>true</ReadOnly>
+					<ContextMenu name="КлиентыРезультатКонтекстноеМеню" id="31"/>
+					<ExtendedTooltip name="КлиентыРезультатРасширеннаяПодсказка" id="32"/>
+				</InputField>
+			</ChildItems>
+			<ContextMenu name="КлиентыКонтекстноеМеню" id="33"/>
+			<ExtendedTooltip name="КлиентыРасширеннаяПодсказка" id="34"/>
+			<SearchStringAddition name="КлиентыСтрокаПоиска" id="35" type="SearchStringAddition"/>
+			<ViewStatusAddition name="КлиентыСостояниеПросмотра" id="36" type="ViewStatusAddition"/>
+			<SearchControlAddition name="КлиентыУправлениеПоиском" id="37" type="SearchControlAddition"/>
+		</Table>
+		<InputField name="Лог" id="38">
+			<DataPath>Лог</DataPath>
+			<TitleLocation>None</TitleLocation>
+			<ReadOnly>true</ReadOnly>
+			<AutoMaxWidth>false</AutoMaxWidth>
+			<AutoMaxHeight>false</AutoMaxHeight>
+			<Height>6</Height>
+			<MultiLine>true</MultiLine>
+			<ContextMenu name="ЛогКонтекстноеМеню" id="39"/>
+			<ExtendedTooltip name="ЛогРасширеннаяПодсказка" id="40"/>
+		</InputField>
+	</ChildItems>
+	<Attributes>
+		<Attribute name="Объект" id="1">
+			<Type>
+				<v8:Type>cfg:ExternalDataProcessorObject.SmartSale_ПостановкаЗаданий</v8:Type>
+			</Type>
+			<MainAttribute>true</MainAttribute>
+		</Attribute>
+		<Attribute name="ДатаВизита" id="2">
+			<Type>
+				<v8:Type>xs:dateTime</v8:Type>
+				<v8:DateQualifiers>
+					<v8:DateFractions>Date</v8:DateFractions>
+				</v8:DateQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Дата визита</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Агент" id="3">
+			<Type>
+				<v8:Type>cfg:CatalogRef.Пользователи</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Агент</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="ОписаниеЗадачи" id="4">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Текст задания</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="ОтборНаименования" id="5">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>100</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Фильтр по имени</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Лог" id="6">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Протокол</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Клиенты" id="7">
+			<Type>
+				<v8:Type>v8:ValueTable</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Клиенты</v8:content>
+				</v8:item>
+			</Title>
+			<Columns>
+				<Column name="Пометка" id="8">
+					<Type>
+						<v8:Type>xs:boolean</v8:Type>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Поставить</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Клиент" id="9">
+					<Type>
+						<v8:Type>cfg:CatalogRef.Партнеры</v8:Type>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Клиент</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Наименование" id="10">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>150</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Клиент</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Результат" id="11">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>0</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Результат</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+			</Columns>
+		</Attribute>
+	</Attributes>
+	<Commands>
+		<Command name="ЗаполнитьКлиентов" id="1">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Подобрать клиентов</v8:content>
+				</v8:item>
+			</Title>
+			<ToolTip>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Заполнить список клиентов выбранного агента</v8:content>
+				</v8:item>
+			</ToolTip>
+			<Action>ЗаполнитьКлиентов</Action>
+		</Command>
+		<Command name="ОтметитьВсе" id="2">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Отметить все</v8:content>
+				</v8:item>
+			</Title>
+			<Action>ОтметитьВсе</Action>
+		</Command>
+		<Command name="СнятьВсе" id="3">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Снять все</v8:content>
+				</v8:item>
+			</Title>
+			<Action>СнятьВсе</Action>
+		</Command>
+		<Command name="ПоставитьЗадания" id="4">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Поставить задания</v8:content>
+				</v8:item>
+			</Title>
+			<ToolTip>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Создать задания торговому представителю по отмеченным клиентам</v8:content>
+				</v8:item>
+			</ToolTip>
+			<Action>ПоставитьЗадания</Action>
+		</Command>
+	</Commands>
+</Form>
