@@ -316,7 +316,8 @@ def _отправить_трек(session: Session) -> int:
             session.delete(т)
             continue
         пакет["points"].append({
-            "id": т.id,
+            # id строкой: разбор на стороне УТ (ЧислоИзПоля) ждёт строку.
+            "id": str(т.id),
             "agent_uid": agent_uid,
             "recorded_at": т.recorded_at.isoformat(),
             "lat": т.lat,
