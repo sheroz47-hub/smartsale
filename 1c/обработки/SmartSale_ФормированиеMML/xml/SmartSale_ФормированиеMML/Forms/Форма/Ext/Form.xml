@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Form xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcssch="http://v8.1c.ru/8.1/data-composition-system/schema" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.20">
+	<Title>
+		<v8:item>
+			<v8:lang>ru</v8:lang>
+			<v8:content>SmartSale: формирование MML</v8:content>
+		</v8:item>
+	</Title>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
+	<Events>
+		<Event name="OnCreateAtServer">ПриСозданииНаСервере</Event>
+	</Events>
+	<ChildItems>
+		<InputField name="Формат" id="1">
+			<DataPath>Формат</DataPath>
+			<ContextMenu name="ФорматКонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="ФорматРасширеннаяПодсказка" id="3"/>
+		</InputField>
+		<InputField name="Роль" id="4">
+			<DataPath>Роль</DataPath>
+			<ContextMenu name="РольКонтекстноеМеню" id="5"/>
+			<ExtendedTooltip name="РольРасширеннаяПодсказка" id="6"/>
+		</InputField>
+		<InputField name="ОтборНоменклатуры" id="7">
+			<DataPath>ОтборНоменклатуры</DataPath>
+			<ContextMenu name="ОтборНоменклатурыКонтекстноеМеню" id="8"/>
+			<ExtendedTooltip name="ОтборНоменклатурыРасширеннаяПодсказка" id="9"/>
+		</InputField>
+		<CheckBoxField name="Проводить" id="10">
+			<DataPath>Проводить</DataPath>
+			<CheckBoxType>Auto</CheckBoxType>
+			<ContextMenu name="ПроводитьКонтекстноеМеню" id="11"/>
+			<ExtendedTooltip name="ПроводитьРасширеннаяПодсказка" id="12"/>
+		</CheckBoxField>
+		<UsualGroup name="ГруппаКоманды" id="13">
+			<Group>Horizontal</Group>
+			<ShowTitle>false</ShowTitle>
+			<Representation>None</Representation>
+			<ChildItems>
+				<Button name="ЗаполнитьНоменклатуру" id="14">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.ЗаполнитьНоменклатуру</CommandName>
+					<DefaultButton>true</DefaultButton>
+					<ExtendedTooltip name="ЗаполнитьНоменклатуруРасширеннаяПодсказка" id="15"/>
+				</Button>
+				<Button name="ОтметитьВсе" id="16">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.ОтметитьВсе</CommandName>
+					<ExtendedTooltip name="ОтметитьВсеРасширеннаяПодсказка" id="17"/>
+				</Button>
+				<Button name="СнятьВсе" id="18">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.СнятьВсе</CommandName>
+					<ExtendedTooltip name="СнятьВсеРасширеннаяПодсказка" id="19"/>
+				</Button>
+				<Button name="ДобавитьВАссортимент" id="20">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.ДобавитьВАссортимент</CommandName>
+					<ExtendedTooltip name="ДобавитьВАссортиментРасширеннаяПодсказка" id="21"/>
+				</Button>
+			</ChildItems>
+			<ExtendedTooltip name="ГруппаКомандыРасширеннаяПодсказка" id="22"/>
+		</UsualGroup>
+		<Table name="Товары" id="23">
+			<DataPath>Товары</DataPath>
+			<Representation>List</Representation>
+			<AutoMaxHeight>false</AutoMaxHeight>
+			<Height>12</Height>
+			<ChangeRowSet>false</ChangeRowSet>
+			<ChangeRowOrder>false</ChangeRowOrder>
+			<CommandBarLocation>None</CommandBarLocation>
+			<ChildItems>
+				<CheckBoxField name="ТоварыПометка" id="24">
+					<DataPath>Товары.Пометка</DataPath>
+					<CheckBoxType>Auto</CheckBoxType>
+					<ContextMenu name="ТоварыПометкаКонтекстноеМеню" id="25"/>
+					<ExtendedTooltip name="ТоварыПометкаРасширеннаяПодсказка" id="26"/>
+				</CheckBoxField>
+				<InputField name="ТоварыНаименование" id="27">
+					<DataPath>Товары.Наименование</DataPath>
+					<ReadOnly>true</ReadOnly>
+					<ContextMenu name="ТоварыНаименованиеКонтекстноеМеню" id="28"/>
+					<ExtendedTooltip name="ТоварыНаименованиеРасширеннаяПодсказка" id="29"/>
+				</InputField>
+				<InputField name="ТоварыРезультат" id="30">
+					<DataPath>Товары.Результат</DataPath>
+					<ReadOnly>true</ReadOnly>
+					<ContextMenu name="ТоварыРезультатКонтекстноеМеню" id="31"/>
+					<ExtendedTooltip name="ТоварыРезультатРасширеннаяПодсказка" id="32"/>
+				</InputField>
+			</ChildItems>
+			<ContextMenu name="ТоварыКонтекстноеМеню" id="33"/>
+			<ExtendedTooltip name="ТоварыРасширеннаяПодсказка" id="34"/>
+			<SearchStringAddition name="ТоварыСтрокаПоиска" id="35" type="SearchStringAddition"/>
+			<ViewStatusAddition name="ТоварыСостояниеПросмотра" id="36" type="ViewStatusAddition"/>
+			<SearchControlAddition name="ТоварыУправлениеПоиском" id="37" type="SearchControlAddition"/>
+		</Table>
+		<InputField name="Лог" id="38">
+			<DataPath>Лог</DataPath>
+			<TitleLocation>None</TitleLocation>
+			<ReadOnly>true</ReadOnly>
+			<AutoMaxWidth>false</AutoMaxWidth>
+			<AutoMaxHeight>false</AutoMaxHeight>
+			<Height>5</Height>
+			<MultiLine>true</MultiLine>
+			<ContextMenu name="ЛогКонтекстноеМеню" id="39"/>
+			<ExtendedTooltip name="ЛогРасширеннаяПодсказка" id="40"/>
+		</InputField>
+	</ChildItems>
+	<Attributes>
+		<Attribute name="Объект" id="1">
+			<Type>
+				<v8:Type>cfg:ExternalDataProcessorObject.SmartSale_ФормированиеMML</v8:Type>
+			</Type>
+			<MainAttribute>true</MainAttribute>
+		</Attribute>
+		<Attribute name="Формат" id="2">
+			<Type>
+				<v8:Type>cfg:CatalogRef.ФорматыМагазинов</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Формат магазина</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Роль" id="3">
+			<Type>
+				<v8:Type>cfg:EnumRef.РолиАссортимента</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Роль ассортимента</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="ОтборНоменклатуры" id="4">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>100</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Фильтр по имени</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Проводить" id="5">
+			<Type>
+				<v8:Type>xs:boolean</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Провести документ</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Лог" id="6">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Протокол</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Товары" id="7">
+			<Type>
+				<v8:Type>v8:ValueTable</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Товары</v8:content>
+				</v8:item>
+			</Title>
+			<Columns>
+				<Column name="Пометка" id="8">
+					<Type>
+						<v8:Type>xs:boolean</v8:Type>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>В MML</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Номенклатура" id="9">
+					<Type>
+						<v8:Type>cfg:CatalogRef.Номенклатура</v8:Type>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Номенклатура</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Наименование" id="10">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>150</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Товар</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Результат" id="11">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>0</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Результат</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+			</Columns>
+		</Attribute>
+	</Attributes>
+	<Commands>
+		<Command name="ЗаполнитьНоменклатуру" id="1">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Подобрать товары</v8:content>
+				</v8:item>
+			</Title>
+			<Action>ЗаполнитьНоменклатуру</Action>
+		</Command>
+		<Command name="ОтметитьВсе" id="2">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Отметить все</v8:content>
+				</v8:item>
+			</Title>
+			<Action>ОтметитьВсе</Action>
+		</Command>
+		<Command name="СнятьВсе" id="3">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Снять все</v8:content>
+				</v8:item>
+			</Title>
+			<Action>СнятьВсе</Action>
+		</Command>
+		<Command name="ДобавитьВАссортимент" id="4">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Добавить в ассортимент</v8:content>
+				</v8:item>
+			</Title>
+			<ToolTip>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Создать «Изменение ассортимента» с отмеченными товарами для формата</v8:content>
+				</v8:item>
+			</ToolTip>
+			<Action>ДобавитьВАссортимент</Action>
+		</Command>
+	</Commands>
+</Form>
