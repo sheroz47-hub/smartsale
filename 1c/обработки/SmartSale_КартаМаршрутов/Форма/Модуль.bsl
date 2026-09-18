@@ -476,13 +476,17 @@
 	|.panel{position:absolute;top:8px;right:8px;z-index:1200;background:#fff;
 	|  padding:8px 10px;border-radius:6px;box-shadow:0 1px 5px rgba(0,0,0,.35);
 	|  font:13px Arial,sans-serif;max-width:240px}
-	|.panel b{color:#c0392b}
+	|.panel b{color:#27ae60}
 	|.panel a{display:none;margin-top:6px;color:#2c6fbb;text-decoration:none}
-	|.mk{width:14px;height:14px;border-radius:50%;background:#bbb;
-	|  border:2px solid #888;box-sizing:border-box;cursor:pointer}
-	|.mk.rt{width:auto;height:auto;min-width:16px;border-radius:9px;
-	|  background:#c0392b;border:0;color:#fff;font:bold 12px Arial;
-	|  text-align:center;padding:1px 6px;line-height:16px;cursor:pointer}
+	|.mk{width:18px;height:18px;border-radius:50%;background:#3498db;
+	|  border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);
+	|  box-sizing:border-box;cursor:pointer;transition:transform .1s}
+	|.mk:hover{transform:scale(1.25)}
+	|.mk.rt{width:auto;height:auto;min-width:20px;border-radius:11px;
+	|  background:#27ae60;border:2px solid #fff;color:#fff;font:bold 12px Arial;
+	|  text-align:center;padding:2px 7px;line-height:16px;
+	|  box-shadow:0 1px 4px rgba(0,0,0,.45);cursor:pointer;transition:transform .1s}
+	|.mk.rt:hover{transform:scale(1.15)}
 	|</style>
 	|</head><body>
 	|<div id=""map""></div>
@@ -508,7 +512,7 @@
 	|  var la=parseFloat(p.lat), lo=parseFloat(p.lon);
 	|  if(isNaN(la)||isNaN(lo)) return;
 	|  if(!(p.ord>0)){
-	|    var ic=L.divIcon({className:'',iconSize:[14,14],iconAnchor:[7,7],
+	|    var ic=L.divIcon({className:'',iconSize:[18,18],iconAnchor:[9,9],
 	|      html:'<div id=""sel_'+p.uid+'"" class=""mk"" title=""'+p.name+'""></div>'});
 	|    L.marker([la,lo],{icon:ic}).addTo(map);
 	|    all.push([la,lo]);
@@ -527,7 +531,7 @@
 	|});
 	|for(var i=1;i<coords.length;i++){ total+=dist(coords[i-1],coords[i]); }
 	|if(coords.length>1){
-	|  L.polyline(coords,{color:'#c0392b',weight:4,opacity:0.85}).addTo(map);
+	|  L.polyline(coords,{color:'#27ae60',weight:4,opacity:0.85}).addTo(map);
 	|}
 	|var info=document.getElementById('info');
 	|info.innerHTML = route.length ?
