@@ -51,6 +51,10 @@ import uz.smartsale.agent.data.db.OrderEntity
 import uz.smartsale.agent.data.db.PaymentEntity
 import uz.smartsale.agent.data.db.TaskEntity
 import uz.smartsale.agent.data.db.TaskRow
+import androidx.activity.compose.rememberLauncherForActivityResult
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import org.json.JSONObject
 import java.math.BigDecimal
 
 /** Суммы с разделителями разрядов: в сумах они длинные. */
@@ -69,6 +73,26 @@ fun LoginScreen(vm: AgentViewModel) {
     var пароль by remember { mutableStateOf("") }
     val занят by vm.busy.collectAsState()
     val сообщение by vm.message.collectAsState()
+
+    // Сканер QR-подключения: QR несёт JSON {url, login, password}. Заполняем
+    // поля и сразу логинимся. Сканер сам запрашивает разрешение камеры.
+    val сканер = rememberLauncherForActivityResult(ScanContract()) { результат ->
+        val текст = результат.contents
+        if (!текст.isNullOrBlank()) {
+            try {
+                val j = JSONObject(текст)
+                val u = j.optString("url").ifBlank { адрес }
+                val l = j.optString("login")
+                val p = j.optString("password")
+                адрес = u
+                логин = l
+                пароль = p
+                if (u.isNotBlank() && l.isNotBlank()) vm.login(u, l, p)
+            } catch (_: Exception) {
+                // Чужой/битый QR — молча игнорируем, поля не трогаем.
+            }
+        }
+    }
 
     Column(
         Modifier.fillMaxSize().padding(24.dp),
@@ -106,6 +130,19 @@ fun LoginScreen(vm: AgentViewModel) {
             if (занят) CircularProgressIndicator(Modifier.width(20.dp))
             else Text("Войти")
         }
+
+        OutlinedButton(
+            onClick = {
+                сканер.launch(ScanOptions().apply {
+                    setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                    setPrompt("Наведите камеру на QR-код подключения")
+                    setBeepEnabled(false)
+                    setOrientationLocked(false)
+                })
+            },
+            enabled = !занят,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        ) { Text("Сканировать QR") }
 
         if (сообщение.isNotBlank()) {
             Text(сообщение, color = MaterialTheme.colorScheme.error,

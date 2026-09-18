@@ -79,4 +79,7 @@ dependencies {
 
     implementation(libs.work.runtime.ktx)
     implementation(libs.datastore.preferences)
+
+    // Сканер QR для онбординга агента (самодостаточный сканер + запрос камеры).
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 }

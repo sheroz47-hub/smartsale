@@ -7,6 +7,9 @@
          работа без него не блокируется: на рынках и в подвалах GPS не ловит. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Сканирование QR-кода подключения агента. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".SmartSaleApp"
