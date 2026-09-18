@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Form xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcssch="http://v8.1c.ru/8.1/data-composition-system/schema" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.20">
+	<Title>
+		<v8:item>
+			<v8:lang>ru</v8:lang>
+			<v8:content>SmartSale: карта клиентов</v8:content>
+		</v8:item>
+	</Title>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
+	<ChildItems>
+		<InputField name="Агент" id="1">
+			<DataPath>Агент</DataPath>
+			<ContextMenu name="АгентКонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="АгентРасширеннаяПодсказка" id="3"/>
+		</InputField>
+		<Button name="ПоказатьНаКарте" id="4">
+			<Type>UsualButton</Type>
+			<CommandName>Form.Command.ПоказатьНаКарте</CommandName>
+			<DefaultButton>true</DefaultButton>
+			<ExtendedTooltip name="ПоказатьНаКартеРасширеннаяПодсказка" id="5"/>
+		</Button>
+		<InputField name="Лог" id="6">
+			<DataPath>Лог</DataPath>
+			<TitleLocation>None</TitleLocation>
+			<ReadOnly>true</ReadOnly>
+			<ContextMenu name="ЛогКонтекстноеМеню" id="7"/>
+			<ExtendedTooltip name="ЛогРасширеннаяПодсказка" id="8"/>
+		</InputField>
+		<HTMLDocumentField name="ПолеБраузер" id="9">
+			<DataPath>ПолеБраузер</DataPath>
+			<TitleLocation>None</TitleLocation>
+			<AutoMaxHeight>false</AutoMaxHeight>
+			<Height>22</Height>
+			<VerticalStretch>true</VerticalStretch>
+			<ContextMenu name="ПолеБраузерКонтекстноеМеню" id="10"/>
+			<ExtendedTooltip name="ПолеБраузерРасширеннаяПодсказка" id="11"/>
+		</HTMLDocumentField>
+	</ChildItems>
+	<Attributes>
+		<Attribute name="Объект" id="1">
+			<Type>
+				<v8:Type>cfg:ExternalDataProcessorObject.SmartSale_КартаМаршрутов</v8:Type>
+			</Type>
+			<MainAttribute>true</MainAttribute>
+		</Attribute>
+		<Attribute name="Агент" id="2">
+			<Type>
+				<v8:Type>cfg:CatalogRef.Пользователи</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Агент</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="ПолеБраузер" id="3">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Карта</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Лог" id="4">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Пояснение</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+	</Attributes>
+	<Commands>
+		<Command name="ПоказатьНаКарте" id="1">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Показать на карте</v8:content>
+				</v8:item>
+			</Title>
+			<ToolTip>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Показать клиентов агента на карте по их координатам</v8:content>
+				</v8:item>
+			</ToolTip>
+			<Action>ПоказатьНаКарте</Action>
+		</Command>
+	</Commands>
+</Form>
