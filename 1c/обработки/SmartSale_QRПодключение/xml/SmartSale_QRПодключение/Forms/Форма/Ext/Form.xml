@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Form xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcssch="http://v8.1c.ru/8.1/data-composition-system/schema" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.20">
+	<Title>
+		<v8:item>
+			<v8:lang>ru</v8:lang>
+			<v8:content>SmartSale: QR-подключение</v8:content>
+		</v8:item>
+	</Title>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
+	<Events>
+		<Event name="OnCreateAtServer">ПриСозданииНаСервере</Event>
+	</Events>
+	<ChildItems>
+		<InputField name="Агент" id="1">
+			<DataPath>Агент</DataPath>
+			<ContextMenu name="АгентКонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="АгентРасширеннаяПодсказка" id="3"/>
+		</InputField>
+		<InputField name="АдресСервера" id="4">
+			<DataPath>АдресСервера</DataPath>
+			<ContextMenu name="АдресСервераКонтекстноеМеню" id="5"/>
+			<ExtendedTooltip name="АдресСервераРасширеннаяПодсказка" id="6"/>
+		</InputField>
+		<Button name="СформироватьQR" id="7">
+			<Type>UsualButton</Type>
+			<CommandName>Form.Command.СформироватьQR</CommandName>
+			<DefaultButton>true</DefaultButton>
+			<ExtendedTooltip name="СформироватьQRРасширеннаяПодсказка" id="8"/>
+		</Button>
+		<InputField name="Логин" id="9">
+			<DataPath>Логин</DataPath>
+			<ReadOnly>true</ReadOnly>
+			<ContextMenu name="ЛогинКонтекстноеМеню" id="10"/>
+			<ExtendedTooltip name="ЛогинРасширеннаяПодсказка" id="11"/>
+		</InputField>
+		<PictureField name="QRКартинка" id="12">
+			<DataPath>QRКартинка</DataPath>
+			<TitleLocation>None</TitleLocation>
+			<Width>24</Width>
+			<AutoMaxWidth>false</AutoMaxWidth>
+			<Height>10</Height>
+			<AutoMaxHeight>false</AutoMaxHeight>
+			<HorizontalStretch>false</HorizontalStretch>
+			<VerticalStretch>false</VerticalStretch>
+			<PictureSize>AutoSize</PictureSize>
+			<Zoomable>true</Zoomable>
+			<ContextMenu name="QRКартинкаКонтекстноеМеню" id="13"/>
+			<ExtendedTooltip name="QRКартинкаРасширеннаяПодсказка" id="14"/>
+		</PictureField>
+		<InputField name="Лог" id="15">
+			<DataPath>Лог</DataPath>
+			<TitleLocation>None</TitleLocation>
+			<ReadOnly>true</ReadOnly>
+			<AutoMaxWidth>false</AutoMaxWidth>
+			<AutoMaxHeight>false</AutoMaxHeight>
+			<Height>4</Height>
+			<MultiLine>true</MultiLine>
+			<ContextMenu name="ЛогКонтекстноеМеню" id="16"/>
+			<ExtendedTooltip name="ЛогРасширеннаяПодсказка" id="17"/>
+		</InputField>
+	</ChildItems>
+	<Attributes>
+		<Attribute name="Объект" id="1">
+			<Type>
+				<v8:Type>cfg:ExternalDataProcessorObject.SmartSale_QRПодключение</v8:Type>
+			</Type>
+			<MainAttribute>true</MainAttribute>
+		</Attribute>
+		<Attribute name="Агент" id="2">
+			<Type>
+				<v8:Type>cfg:CatalogRef.Пользователи</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Агент</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="АдресСервера" id="3">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>200</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Адрес сервера</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Логин" id="4">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>100</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Логин агента</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="QRКартинка" id="5">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>QR-код</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Лог" id="6">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Пояснение</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+	</Attributes>
+	<Commands>
+		<Command name="СформироватьQR" id="1">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Сформировать QR</v8:content>
+				</v8:item>
+			</Title>
+			<ToolTip>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Построить QR-код с адресом сервера и учётными данными агента</v8:content>
+				</v8:item>
+			</ToolTip>
+			<Action>СформироватьQR</Action>
+		</Command>
+	</Commands>
+</Form>
