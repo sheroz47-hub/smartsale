@@ -157,11 +157,13 @@ private val ДНИ_ПОЛНЫЕ = listOf(
     "понедельник", "вторник", "среду", "четверг", "пятницу", "субботу", "воскресенье")
 
 @Composable
-fun RouteScreen(vm: AgentViewModel, onCustomer: (String) -> Unit) {
+fun RouteScreen(vm: AgentViewModel, onNewClient: () -> Unit = {},
+                onCustomer: (String) -> Unit) {
     val маршрут by vm.routeCustomers.collectAsState()
     val все by vm.customers.collectAsState()
     val день by vm.weekday.collectAsState()
     val дниСМаршрутом by vm.routeDays.collectAsState()
+    val права by vm.caps.collectAsState()
     var показатьВсех by remember { mutableStateOf(false) }
     val список = if (показатьВсех) все else маршрут
 
@@ -177,6 +179,13 @@ fun RouteScreen(vm: AgentViewModel, onCustomer: (String) -> Unit) {
                 onClick = { показатьВсех = false }, modifier = Modifier.weight(1f))
             Вкладка("Все клиенты (${все.size})", выбрана = показатьВсех,
                 onClick = { показатьВсех = true }, modifier = Modifier.weight(1f))
+        }
+
+        if (права.newClient) {
+            OutlinedButton(
+                onClick = onNewClient,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            ) { Text("+ Новый клиент") }
         }
 
         if (!показатьВсех) {
@@ -309,6 +318,7 @@ fun CustomerScreen(vm: AgentViewModel, onOrder: () -> Unit, onBack: () -> Unit) 
     val текущий = клиент ?: return
     val задания by vm.currentTasks.collectAsState()
     val вопросыАудита by vm.auditQuestions.collectAsState()
+    val права by vm.caps.collectAsState()
     var сумма by remember { mutableStateOf("") }
     var примечание by remember { mutableStateOf("") }
     var заданиеКОтметке by remember { mutableStateOf<TaskEntity?>(null) }
@@ -368,33 +378,37 @@ fun CustomerScreen(vm: AgentViewModel, onOrder: () -> Unit, onBack: () -> Unit) 
             }
         }
 
-        Button(onClick = onOrder, enabled = !текущий.blocked && текущий.hasContract,
-            modifier = Modifier.fillMaxWidth()) {
-            Text("Оформить заказ")
+        if (права.order) {
+            Button(onClick = onOrder, enabled = !текущий.blocked && текущий.hasContract,
+                modifier = Modifier.fillMaxWidth()) {
+                Text("Оформить заказ")
+            }
         }
 
-        Text("Принять оплату", fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
-        OutlinedTextField(
-            value = сумма, onValueChange = { сумма = it },
-            label = { Text("Сумма наличными") },
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                keyboardType = KeyboardType.Number),
-            singleLine = true, modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = примечание, onValueChange = { примечание = it },
-            label = { Text("Примечание") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        )
-        OutlinedButton(
-            onClick = {
-                vm.savePayment(сумма, "cash", примечание)
-                сумма = ""; примечание = ""
-            },
-            enabled = сумма.isNotBlank(),
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        ) { Text("Записать оплату") }
+        if (права.payment) {
+            Text("Принять оплату", fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+            OutlinedTextField(
+                value = сумма, onValueChange = { сумма = it },
+                label = { Text("Сумма наличными") },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = KeyboardType.Number),
+                singleLine = true, modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = примечание, onValueChange = { примечание = it },
+                label = { Text("Примечание") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedButton(
+                onClick = {
+                    vm.savePayment(сумма, "cash", примечание)
+                    сумма = ""; примечание = ""
+                },
+                enabled = сумма.isNotBlank(),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) { Text("Записать оплату") }
+        }
 
         Row(Modifier.fillMaxWidth().padding(top = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -420,7 +434,7 @@ fun CustomerScreen(vm: AgentViewModel, onOrder: () -> Unit, onBack: () -> Unit) 
                  else "Уточнить координаты")
         }
 
-        if (вопросыАудита.isNotEmpty()) {
+        if (вопросыАудита.isNotEmpty() && права.audit) {
             OutlinedButton(onClick = { показатьАудит = true },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                 Text("Аудит точки")
@@ -578,6 +592,73 @@ private fun АудитДиалог(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
     )
+}
+
+/** Заявка агента на нового клиента: данные точки уходят менеджеру в УТ. */
+@Composable
+fun NewClientScreen(vm: AgentViewModel, onDone: () -> Unit, onBack: () -> Unit) {
+    var название by remember { mutableStateOf("") }
+    var адрес by remember { mutableStateOf("") }
+    var телефон by remember { mutableStateOf("") }
+    var контакт by remember { mutableStateOf("") }
+    var инн by remember { mutableStateOf("") }
+    var комментарий by remember { mutableStateOf("") }
+    var широта by remember { mutableStateOf("") }
+    var долгота by remember { mutableStateOf("") }
+    val занят by vm.busy.collectAsState()
+
+    val снятьКоординаты = rememberLocationRequester(
+        onLocation = { la, lo -> широта = la.toString(); долгота = lo.toString() },
+        onError = { vm.setMessage(it) },
+    )
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Text("Заявка на нового клиента", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text("Менеджер проверит и заведёт клиента в 1С.",
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.padding(bottom = 8.dp))
+
+        OutlinedTextField(value = название, onValueChange = { название = it },
+            label = { Text("Название точки *") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        OutlinedTextField(value = адрес, onValueChange = { адрес = it },
+            label = { Text("Адрес") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        OutlinedTextField(value = телефон, onValueChange = { телефон = it },
+            label = { Text("Телефон") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        OutlinedTextField(value = контакт, onValueChange = { контакт = it },
+            label = { Text("Контактное лицо (ЛПР)") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        OutlinedTextField(value = инн, onValueChange = { инн = it },
+            label = { Text("ИНН") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        OutlinedTextField(value = комментарий, onValueChange = { комментарий = it },
+            label = { Text("Комментарий") },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            МаркерЛокации(широта.isNotBlank(), Modifier.padding(end = 6.dp))
+            Text(
+                if (широта.isNotBlank()) "Координаты сняты" else "Координаты не сняты",
+                modifier = Modifier.weight(1f), fontSize = 13.sp)
+            OutlinedButton(onClick = снятьКоординаты) { Text("Снять GPS") }
+        }
+
+        Button(
+            onClick = {
+                vm.saveClientRequest(название, адрес, телефон, контакт, инн,
+                    широта, долгота, комментарий) { onDone() }
+            },
+            enabled = название.isNotBlank() && !занят,
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        ) { Text("Отправить заявку") }
+
+        TextButton(onClick = onBack, modifier = Modifier.padding(top = 8.dp)) {
+            Text("← назад")
+        }
+    }
 }
 
 /** Ярлык статуса долга по «Стандарту работы ТП»: Рабочий/Проблемный/Плохой,

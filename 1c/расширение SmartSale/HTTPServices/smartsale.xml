@@ -342,6 +342,25 @@
 					</Method>
 				</ChildObjects>
 			</URLTemplate>
+			<URLTemplate uuid="b8e51c40-721e-471e-971e-77000000001e">
+				<Properties>
+					<Name>customer_requests</Name>
+					<Synonym><v8:item><v8:lang>ru</v8:lang><v8:content>Заявки на новых клиентов</v8:content></v8:item></Synonym>
+					<Comment/>
+					<Template>/customer_requests</Template>
+				</Properties>
+				<ChildObjects>
+					<Method uuid="b8e51c40-721f-471f-971f-77000000001f">
+						<Properties>
+							<Name>post</Name>
+							<Synonym><v8:item><v8:lang>ru</v8:lang><v8:content>POST</v8:content></v8:item></Synonym>
+							<Comment/>
+							<HTTPMethod>POST</HTTPMethod>
+							<Handler>customerRequestsPOST</Handler>
+						</Properties>
+					</Method>
+				</ChildObjects>
+			</URLTemplate>
 		</ChildObjects>
 	</HTTPService>
 </MetaDataObject>

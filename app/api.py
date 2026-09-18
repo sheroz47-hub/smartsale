@@ -34,9 +34,10 @@ from .auth import (
 from .config import CURRENCY, REQUIRE_VISIT_GPS, SYNC_PAGE_SIZE
 from .db import get_session
 from .models import (
-    Audit, AuditAnswer, AuditQuestion, Customer, CustomerGeoPush, Device, Order,
-    OrderLine, Payment, Price, PriceType, Product, ProductCategory, Promotion,
-    Route, RouteStop, Stock, SyncLog, Task, TaskPhoto, User, Visit, Warehouse,
+    Audit, AuditAnswer, AuditQuestion, ClientRequest, Customer, CustomerGeoPush,
+    Device, Order, OrderLine, Payment, Price, PriceType, Product, ProductCategory,
+    Promotion, Route, RouteStop, Stock, SyncLog, Task, TaskPhoto, User, Visit,
+    Warehouse,
 )
 
 # Предел размера одного фото. Снимок сжимается на телефоне; на шине это ещё и
@@ -143,6 +144,12 @@ def login(данные: ЗапросВхода, request: Request,
             "uuid": пользователь.uuid,
             "full_name": пользователь.full_name,
             "login": пользователь.login,
+            # Права: приложение включает/выключает функции по этим флагам.
+            "can_order": пользователь.can_order,
+            "can_payment": пользователь.can_payment,
+            "can_delivery": пользователь.can_delivery,
+            "can_audit": пользователь.can_audit,
+            "can_new_client": пользователь.can_new_client,
         },
     }
 
@@ -435,6 +442,18 @@ class АудитСТелефона(BaseModel):
     answers: list[ОтветАудита] = []
 
 
+class ЗаявкаКлиента(BaseModel):
+    client_uid: str = Field(min_length=8, max_length=36)
+    name: str = Field(min_length=1, max_length=255)
+    address: str = ""
+    phone: str = ""
+    contact_name: str = ""
+    inn: str = ""
+    lat: str = ""
+    lon: str = ""
+    comment: str = ""
+
+
 class ПакетОтправки(BaseModel):
     orders: list[ЗаказСТелефона] = []
     payments: list[ОплатаСТелефона] = []
@@ -442,6 +461,7 @@ class ПакетОтправки(BaseModel):
     tasks: list[ВыполнениеЗадания] = []
     locations: list[ЛокацияКлиента] = []
     audits: list[АудитСТелефона] = []
+    client_requests: list[ЗаявкаКлиента] = []
 
 
 @router.post("/sync/push")
@@ -456,7 +476,7 @@ def push(пакет: ПакетОтправки, device: Device = Depends(curren
     начало = time.monotonic()
     агент: User = device.user
     результат = {"orders": [], "payments": [], "visits": [], "tasks": [],
-                 "locations": [], "audits": []}
+                 "locations": [], "audits": [], "client_requests": []}
 
     for заказ in пакет.orders:
         результат["orders"].append(_принять_заказ(session, агент, заказ))
@@ -470,6 +490,8 @@ def push(пакет: ПакетОтправки, device: Device = Depends(curren
         результат["locations"].append(_принять_локацию(session, агент, локация))
     for аудит in пакет.audits:
         результат["audits"].append(_принять_аудит(session, агент, аудит))
+    for заявка in пакет.client_requests:
+        результат["client_requests"].append(_принять_заявку_клиента(session, агент, заявка))
 
     session.add(SyncLog(
         device_id=device.id, user_id=агент.id, direction="push",
@@ -734,6 +756,44 @@ def _принять_аудит(session: Session, агент: User, данные:
         аудит.answers.append(AuditAnswer(
             question_uuid=ответ.question_uuid, value=ответ.value))
     session.add(аудит)
+    session.flush()
+
+    return {"client_uid": данные.client_uid, "status": "accepted"}
+
+
+def _коорд(значение: str) -> float | None:
+    з = (значение or "").strip().replace(",", ".")
+    if not з:
+        return None
+    try:
+        return float(з)
+    except ValueError:
+        return None
+
+
+def _принять_заявку_клиента(session: Session, агент: User,
+                            данные: ЗаявкаКлиента) -> dict:
+    """Заявка агента на нового клиента. Идемпотентно по client_uid; в УТ уходит
+    обратным каналом (push_to_ut → менеджер заводит клиента заявкой)."""
+    существующая = session.scalar(
+        select(ClientRequest).where(ClientRequest.client_uid == данные.client_uid))
+    if существующая is not None:
+        return {"client_uid": данные.client_uid, "status": "accepted"}
+
+    заявка = ClientRequest(
+        client_uid=данные.client_uid,
+        agent_id=агент.id,
+        name=данные.name.strip()[:255],
+        address=данные.address.strip()[:500],
+        phone=данные.phone.strip()[:64],
+        contact_name=данные.contact_name.strip()[:128],
+        inn=данные.inn.strip()[:32],
+        lat=_коорд(данные.lat),
+        lon=_коорд(данные.lon),
+        comment=данные.comment,
+        status="new",
+    )
+    session.add(заявка)
     session.flush()
 
     return {"client_uid": данные.client_uid, "status": "accepted"}

@@ -35,6 +35,11 @@ data class UserDto(
     val uuid: String,
     @SerialName("full_name") val fullName: String,
     val login: String,
+    @SerialName("can_order") val canOrder: Boolean = true,
+    @SerialName("can_payment") val canPayment: Boolean = true,
+    @SerialName("can_delivery") val canDelivery: Boolean = false,
+    @SerialName("can_audit") val canAudit: Boolean = true,
+    @SerialName("can_new_client") val canNewClient: Boolean = true,
 )
 
 @Serializable
@@ -193,6 +198,20 @@ data class PushRequest(
     val tasks: List<TaskDoneDto> = emptyList(),
     val locations: List<LocationDto> = emptyList(),
     val audits: List<AuditDto> = emptyList(),
+    @SerialName("client_requests") val clientRequests: List<ClientRequestDto> = emptyList(),
+)
+
+@Serializable
+data class ClientRequestDto(
+    @SerialName("client_uid") val clientUid: String,
+    val name: String,
+    val address: String = "",
+    val phone: String = "",
+    @SerialName("contact_name") val contactName: String = "",
+    val inn: String = "",
+    val lat: String = "",
+    val lon: String = "",
+    val comment: String = "",
 )
 
 @Serializable
@@ -281,6 +300,7 @@ data class PushResponse(
     val locations: List<GeoPushResult> = emptyList(),
     // Аудиты: результат keyed по client_uid — та же форма, что у заказов.
     val audits: List<PushResult> = emptyList(),
+    @SerialName("client_requests") val clientRequests: List<PushResult> = emptyList(),
     @SerialName("server_time") val serverTime: String = "",
 )
 

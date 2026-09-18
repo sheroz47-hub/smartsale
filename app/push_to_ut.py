@@ -31,8 +31,8 @@ from sqlalchemy.orm import Session  # noqa: E402
 from . import ut_client  # noqa: E402
 from .db import SessionLocal, engine  # noqa: E402
 from .models import (  # noqa: E402
-    Audit, Base, Customer, CustomerGeoPush, Order, Payment, Product, Task,
-    TaskPhoto, User, UtExport,
+    Audit, Base, ClientRequest, Customer, CustomerGeoPush, Order, Payment,
+    Product, Task, TaskPhoto, User, UtExport,
 )
 
 log = logging.getLogger("push_to_ut")
@@ -345,6 +345,53 @@ def _отправить_аудиты(session: Session) -> int:
     return 0
 
 
+def _отправить_заявки_клиентов(session: Session) -> int:
+    """Заявки агентов на новых клиентов в УТ (метод /customer_requests, пачкой).
+    Идемпотентность — статусом new→sent (ключ client_uid). Принято → sent
+    (терминально: менеджер заводит клиента в УТ); сбой связи — остаётся new."""
+    заявки = session.scalars(
+        select(ClientRequest).where(ClientRequest.status == "new")).all()
+    if not заявки:
+        return 0
+
+    агенты = {п.id: п.uuid for п in session.scalars(select(User)).all()}
+
+    по_uid = {}
+    пакет = {"client_requests": []}
+    for з in заявки:
+        по_uid[з.client_uid] = з
+        пакет["client_requests"].append({
+            "client_uid": з.client_uid,
+            "agent_uid": агенты.get(з.agent_id, ""),
+            "name": з.name,
+            "address": з.address,
+            "phone": з.phone,
+            "contact_name": з.contact_name,
+            "inn": з.inn,
+            "lat": "" if з.lat is None else str(з.lat),
+            "lon": "" if з.lon is None else str(з.lon),
+            "comment": з.comment,
+        })
+
+    try:
+        ответ = ut_client.отправить("customer_requests", пакет)
+    except ut_client.ОшибкаУТ:
+        log.exception("отправка заявок на клиентов не удалась")
+        return 1
+
+    for р in ответ.get("results", []):
+        з = по_uid.get(р.get("client_uid"))
+        if з is None:
+            continue
+        if р.get("status") == "accepted":
+            з.status = "sent"
+        else:
+            log.warning("заявка %s отклонена УТ: %s",
+                        з.client_uid, р.get("error", ""))
+    session.commit()
+    return 0
+
+
 def run_push() -> int:
     """Отправка накопленных документов в УТ. Возвращает число упавших групп
     (0 — всё ушло). Сбой связи по одному агенту не роняет остальных: документ
@@ -388,6 +435,12 @@ def run_push() -> int:
             ошибок += 1
             session.rollback()
             log.exception("сбой отправки аудитов")
+        try:
+            ошибок += _отправить_заявки_клиентов(session)
+        except Exception:
+            ошибок += 1
+            session.rollback()
+            log.exception("сбой отправки заявок на клиентов")
     return ошибок
 
 

@@ -12,6 +12,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import uz.smartsale.agent.data.db.AppDatabase
 import uz.smartsale.agent.data.db.AuditAnswerEntity
 import uz.smartsale.agent.data.db.AuditEntity
+import uz.smartsale.agent.data.db.ClientRequestEntity
 import uz.smartsale.agent.data.db.AuditQuestionEntity
 import uz.smartsale.agent.data.db.CategoryEntity
 import uz.smartsale.agent.data.db.CustomerEntity
@@ -100,7 +101,16 @@ class Repository(private val context: Context) {
                     appVersion = appVersion,
                 )
             )
-            settings.signIn(ответ.token, ответ.user.fullName)
+            settings.signIn(
+                ответ.token, ответ.user.fullName,
+                AgentCaps(
+                    order = ответ.user.canOrder,
+                    payment = ответ.user.canPayment,
+                    delivery = ответ.user.canDelivery,
+                    audit = ответ.user.canAudit,
+                    newClient = ответ.user.canNewClient,
+                ),
+            )
             ответ.user.fullName
         }
     }
@@ -143,10 +153,11 @@ class Repository(private val context: Context) {
         val локации = media.pendingLocations()
         val фото = media.pendingPhotos()
         val аудиты = db.audits().pendingAudits()
+        val заявки = documents.pendingClientRequests()
 
         if (заказы.isEmpty() && оплаты.isEmpty() && визиты.isEmpty()
             && задания.isEmpty() && локации.isEmpty() && фото.isEmpty()
-            && аудиты.isEmpty()) {
+            && аудиты.isEmpty() && заявки.isEmpty()) {
             return SyncResult(ok = true, message = "нечего отправлять")
         }
 
@@ -158,7 +169,7 @@ class Repository(private val context: Context) {
         // только если в ней что-то есть.
         val естьJson = заказы.isNotEmpty() || оплаты.isNotEmpty()
             || визиты.isNotEmpty() || задания.isNotEmpty() || локации.isNotEmpty()
-            || аудиты.isNotEmpty()
+            || аудиты.isNotEmpty() || заявки.isNotEmpty()
         if (естьJson) {
             val запрос = PushRequest(
                 orders = заказы.map { заказ ->
@@ -202,6 +213,13 @@ class Repository(private val context: Context) {
                         answers = db.audits().answersOf(аудит.clientUid).map {
                             AuditAnswerDto(it.questionUuid, it.value)
                         },
+                    )
+                },
+                clientRequests = заявки.map {
+                    ClientRequestDto(
+                        clientUid = it.clientUid, name = it.name, address = it.address,
+                        phone = it.phone, contactName = it.contactName, inn = it.inn,
+                        lat = it.lat, lon = it.lon, comment = it.comment,
                     )
                 },
             )
@@ -255,6 +273,13 @@ class Repository(private val context: Context) {
                     db.audits().markAuditSent(итог.clientUid); отправлено++
                 } else {
                     db.audits().markAuditRejected(итог.clientUid, итог.error); отклонено++
+                }
+            }
+            ответ.clientRequests.forEach { итог ->
+                if (итог.accepted) {
+                    documents.markClientRequestSent(итог.clientUid); отправлено++
+                } else {
+                    documents.markClientRequestRejected(итог.clientUid, итог.error); отклонено++
                 }
             }
         }
@@ -493,6 +518,28 @@ class Repository(private val context: Context) {
             )
         )
     }
+
+    suspend fun saveClientRequest(
+        name: String, address: String, phone: String, contactName: String,
+        inn: String, lat: String, lon: String, comment: String,
+    ) = withContext(Dispatchers.IO) {
+        db.documents().insertClientRequest(
+            ClientRequestEntity(
+                clientUid = UUID.randomUUID().toString(),
+                name = name.trim(),
+                address = address.trim(),
+                phone = phone.trim(),
+                contactName = contactName.trim(),
+                inn = inn.trim(),
+                lat = lat.trim(),
+                lon = lon.trim(),
+                comment = comment.trim(),
+                createdAt = System.currentTimeMillis(),
+            )
+        )
+    }
+
+    fun recentClientRequests() = db.documents().recentClientRequests()
 
     suspend fun saveVisit(customerUuid: String, result: String, comment: String,
                           lat: Double?, lon: Double?) = withContext(Dispatchers.IO) {

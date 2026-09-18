@@ -171,6 +171,23 @@ data class PaymentEntity(
     val error: String = "",
 )
 
+/** Заявка агента на добавление нового клиента (менеджер заводит клиента в УТ). */
+@Entity(tableName = "client_requests", indices = [Index("synced")])
+data class ClientRequestEntity(
+    @PrimaryKey val clientUid: String,
+    val name: String,
+    val address: String,
+    val phone: String,
+    val contactName: String,
+    val inn: String,
+    val lat: String,
+    val lon: String,
+    val comment: String,
+    val createdAt: Long,
+    val synced: Boolean = false,
+    val error: String = "",
+)
+
 /**
  * Акция — условие скидки, настроенное в УТ и принятое с сервера.
  *

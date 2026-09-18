@@ -1,0 +1,374 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Form xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcssch="http://v8.1c.ru/8.1/data-composition-system/schema" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.20">
+	<Title>
+		<v8:item>
+			<v8:lang>ru</v8:lang>
+			<v8:content>SmartSale: приём заявок клиентов</v8:content>
+		</v8:item>
+	</Title>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
+	<Events>
+		<Event name="OnCreateAtServer">ПриСозданииНаСервере</Event>
+	</Events>
+	<ChildItems>
+		<UsualGroup name="ГруппаКоманды" id="1">
+			<Group>Horizontal</Group>
+			<ShowTitle>false</ShowTitle>
+			<Representation>None</Representation>
+			<ChildItems>
+				<Button name="Обновить" id="2">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.Обновить</CommandName>
+					<ExtendedTooltip name="ОбновитьРасширеннаяПодсказка" id="3"/>
+				</Button>
+				<Button name="ОтметитьВсе" id="4">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.ОтметитьВсе</CommandName>
+					<ExtendedTooltip name="ОтметитьВсеРасширеннаяПодсказка" id="5"/>
+				</Button>
+				<Button name="СнятьВсе" id="6">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.СнятьВсе</CommandName>
+					<ExtendedTooltip name="СнятьВсеРасширеннаяПодсказка" id="7"/>
+				</Button>
+				<Button name="ЗавестиКлиентов" id="8">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.ЗавестиКлиентов</CommandName>
+					<DefaultButton>true</DefaultButton>
+					<ExtendedTooltip name="ЗавестиКлиентовРасширеннаяПодсказка" id="9"/>
+				</Button>
+			</ChildItems>
+			<ExtendedTooltip name="ГруппаКомандыРасширеннаяПодсказка" id="10"/>
+		</UsualGroup>
+		<Table name="Заявки" id="11">
+			<DataPath>Заявки</DataPath>
+			<Representation>List</Representation>
+			<AutoMaxHeight>false</AutoMaxHeight>
+			<Height>14</Height>
+			<ChangeRowSet>false</ChangeRowSet>
+			<ChangeRowOrder>false</ChangeRowOrder>
+			<CommandBarLocation>None</CommandBarLocation>
+			<ChildItems>
+				<CheckBoxField name="ЗаявкиПометка" id="12">
+					<DataPath>Заявки.Пометка</DataPath>
+					<CheckBoxType>Auto</CheckBoxType>
+					<ContextMenu name="ЗаявкиПометкаКонтекстноеМеню" id="13"/>
+					<ExtendedTooltip name="ЗаявкиПометкаРасширеннаяПодсказка" id="14"/>
+				</CheckBoxField>
+				<InputField name="ЗаявкиНаименование" id="15">
+					<DataPath>Заявки.Наименование</DataPath>
+					<ContextMenu name="ЗаявкиНаименованиеКонтекстноеМеню" id="16"/>
+					<ExtendedTooltip name="ЗаявкиНаименованиеРасширеннаяПодсказка" id="17"/>
+				</InputField>
+				<InputField name="ЗаявкиИНН" id="18">
+					<DataPath>Заявки.ИНН</DataPath>
+					<ContextMenu name="ЗаявкиИННКонтекстноеМеню" id="19"/>
+					<ExtendedTooltip name="ЗаявкиИННРасширеннаяПодсказка" id="20"/>
+				</InputField>
+				<InputField name="ЗаявкиТелефон" id="21">
+					<DataPath>Заявки.Телефон</DataPath>
+					<ContextMenu name="ЗаявкиТелефонКонтекстноеМеню" id="22"/>
+					<ExtendedTooltip name="ЗаявкиТелефонРасширеннаяПодсказка" id="23"/>
+				</InputField>
+				<InputField name="ЗаявкиАдрес" id="24">
+					<DataPath>Заявки.Адрес</DataPath>
+					<ContextMenu name="ЗаявкиАдресКонтекстноеМеню" id="25"/>
+					<ExtendedTooltip name="ЗаявкиАдресРасширеннаяПодсказка" id="26"/>
+				</InputField>
+				<InputField name="ЗаявкиКонтактноеЛицо" id="27">
+					<DataPath>Заявки.КонтактноеЛицо</DataPath>
+					<ReadOnly>true</ReadOnly>
+					<ContextMenu name="ЗаявкиКонтактноеЛицоКонтекстноеМеню" id="28"/>
+					<ExtendedTooltip name="ЗаявкиКонтактноеЛицоРасширеннаяПодсказка" id="29"/>
+				</InputField>
+				<InputField name="ЗаявкиАгент" id="30">
+					<DataPath>Заявки.Агент</DataPath>
+					<ReadOnly>true</ReadOnly>
+					<ContextMenu name="ЗаявкиАгентКонтекстноеМеню" id="31"/>
+					<ExtendedTooltip name="ЗаявкиАгентРасширеннаяПодсказка" id="32"/>
+				</InputField>
+				<InputField name="ЗаявкиКоординаты" id="33">
+					<DataPath>Заявки.Координаты</DataPath>
+					<ReadOnly>true</ReadOnly>
+					<ContextMenu name="ЗаявкиКоординатыКонтекстноеМеню" id="34"/>
+					<ExtendedTooltip name="ЗаявкиКоординатыРасширеннаяПодсказка" id="35"/>
+				</InputField>
+				<InputField name="ЗаявкиКомментарий" id="36">
+					<DataPath>Заявки.Комментарий</DataPath>
+					<ReadOnly>true</ReadOnly>
+					<ContextMenu name="ЗаявкиКомментарийКонтекстноеМеню" id="37"/>
+					<ExtendedTooltip name="ЗаявкиКомментарийРасширеннаяПодсказка" id="38"/>
+				</InputField>
+				<InputField name="ЗаявкиРезультат" id="39">
+					<DataPath>Заявки.Результат</DataPath>
+					<ReadOnly>true</ReadOnly>
+					<ContextMenu name="ЗаявкиРезультатКонтекстноеМеню" id="40"/>
+					<ExtendedTooltip name="ЗаявкиРезультатРасширеннаяПодсказка" id="41"/>
+				</InputField>
+			</ChildItems>
+			<ContextMenu name="ЗаявкиКонтекстноеМеню" id="42"/>
+			<ExtendedTooltip name="ЗаявкиРасширеннаяПодсказка" id="43"/>
+			<SearchStringAddition name="ЗаявкиСтрокаПоиска" id="44" type="SearchStringAddition"/>
+			<ViewStatusAddition name="ЗаявкиСостояниеПросмотра" id="45" type="ViewStatusAddition"/>
+			<SearchControlAddition name="ЗаявкиУправлениеПоиском" id="46" type="SearchControlAddition"/>
+		</Table>
+		<InputField name="Лог" id="47">
+			<DataPath>Лог</DataPath>
+			<TitleLocation>None</TitleLocation>
+			<ReadOnly>true</ReadOnly>
+			<AutoMaxWidth>false</AutoMaxWidth>
+			<AutoMaxHeight>false</AutoMaxHeight>
+			<Height>5</Height>
+			<MultiLine>true</MultiLine>
+			<ContextMenu name="ЛогКонтекстноеМеню" id="48"/>
+			<ExtendedTooltip name="ЛогРасширеннаяПодсказка" id="49"/>
+		</InputField>
+	</ChildItems>
+	<Attributes>
+		<Attribute name="Объект" id="1">
+			<Type>
+				<v8:Type>cfg:ExternalDataProcessorObject.SmartSale_ПриёмЗаявокКлиентов</v8:Type>
+			</Type>
+			<MainAttribute>true</MainAttribute>
+		</Attribute>
+		<Attribute name="Лог" id="2">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Протокол</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="Заявки" id="3">
+			<Type>
+				<v8:Type>v8:ValueTable</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Заявки</v8:content>
+				</v8:item>
+			</Title>
+			<Columns>
+				<Column name="Пометка" id="4">
+					<Type>
+						<v8:Type>xs:boolean</v8:Type>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Завести</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="ЗаявкаУИД" id="5">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>36</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>УИД заявки</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Наименование" id="6">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>150</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Наименование</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="ИНН" id="7">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>20</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>ИНН</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Телефон" id="8">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>50</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Телефон</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Адрес" id="9">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>0</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Адрес</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="КонтактноеЛицо" id="10">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>100</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Контакт</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Агент" id="11">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>150</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Агент</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Координаты" id="12">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>50</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Координаты</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Комментарий" id="13">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>0</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Комментарий</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Результат" id="14">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>0</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Результат</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+			</Columns>
+		</Attribute>
+	</Attributes>
+	<Commands>
+		<Command name="Обновить" id="1">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Обновить</v8:content>
+				</v8:item>
+			</Title>
+			<ToolTip>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Перечитать список необработанных заявок</v8:content>
+				</v8:item>
+			</ToolTip>
+			<Action>Обновить</Action>
+		</Command>
+		<Command name="ОтметитьВсе" id="2">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Отметить все</v8:content>
+				</v8:item>
+			</Title>
+			<Action>ОтметитьВсе</Action>
+		</Command>
+		<Command name="СнятьВсе" id="3">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Снять все</v8:content>
+				</v8:item>
+			</Title>
+			<Action>СнятьВсе</Action>
+		</Command>
+		<Command name="ЗавестиКлиентов" id="4">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Завести клиентов</v8:content>
+				</v8:item>
+			</Title>
+			<ToolTip>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Создать партнёра и контрагента по отмеченным заявкам</v8:content>
+				</v8:item>
+			</ToolTip>
+			<Action>ЗавестиКлиентов</Action>
+		</Command>
+	</Commands>
+</Form>

@@ -170,6 +170,21 @@ interface DocumentDao {
     suspend fun markPaymentRejected(uid: String, error: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertClientRequest(request: ClientRequestEntity)
+
+    @Query("SELECT * FROM client_requests WHERE synced = 0 ORDER BY createdAt")
+    suspend fun pendingClientRequests(): List<ClientRequestEntity>
+
+    @Query("UPDATE client_requests SET synced = 1, error = '' WHERE clientUid = :uid")
+    suspend fun markClientRequestSent(uid: String)
+
+    @Query("UPDATE client_requests SET error = :error WHERE clientUid = :uid")
+    suspend fun markClientRequestRejected(uid: String, error: String)
+
+    @Query("SELECT * FROM client_requests ORDER BY createdAt DESC LIMIT 100")
+    fun recentClientRequests(): Flow<List<ClientRequestEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVisit(visit: VisitEntity)
 
     @Query("SELECT * FROM visits WHERE synced = 0")

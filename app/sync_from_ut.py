@@ -310,6 +310,13 @@ def _принять_агентов(session: Session) -> None:
         пароль = э.get("password") or ""
         if пароль and not check_secret(пароль, п.password_hash):
             п.password_hash = hash_secret(пароль)
+        # Права агента — мастер в УТ. Умолчания разрешительные (доставка нет),
+        # чтобы отсутствие ресурса в регистре не заблокировало агента.
+        п.can_order = bool(э.get("can_order", True))
+        п.can_payment = bool(э.get("can_payment", True))
+        п.can_delivery = bool(э.get("can_delivery", False))
+        п.can_audit = bool(э.get("can_audit", True))
+        п.can_new_client = bool(э.get("can_new_client", True))
 
     session.commit()
 

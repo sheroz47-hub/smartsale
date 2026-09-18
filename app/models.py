@@ -84,6 +84,16 @@ class User(Base, Timestamped):
     # мобильное приложение, в веб-кабинет не пускаем.
     role: Mapped[str] = mapped_column(String(16), default="agent", index=True)
 
+    # --- права агента (мастер — УТ, регистр SmartSale_СкладыАгентов) ---------
+    # Приложение включает/выключает функции по этим флагам. Приходят обменом;
+    # умолчания разрешительные, чтобы не заблокировать уже работающих агентов
+    # (кроме доставки — она выдаётся точечно).
+    can_order: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_payment: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_delivery: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_audit: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_new_client: Mapped[bool] = mapped_column(Boolean, default=True)
+
     # Чей это агент. Супервизор видит заказы своих подчинённых.
     supervisor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
@@ -112,6 +122,41 @@ class User(Base, Timestamped):
             return self.full_name
         инициалы = "".join(f"{ч[0]}." for ч in части[1:3])
         return f"{части[0]} {инициалы}"
+
+
+class ClientRequest(Base, Timestamped):
+    """Заявка агента на добавление нового клиента.
+
+    Агент с поля не создаёт клиента сам: заводит заявку с данными точки, а
+    менеджер в УТ проверяет и создаёт партнёра/контрагента. Мастер-данные
+    остаются под контролем офиса.
+    """
+
+    __tablename__ = "client_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    uuid: Mapped[str] = mapped_column(String(36), unique=True, default=new_uuid)
+    # Ключ идемпотентности: телефон генерит при создании заявки.
+    client_uid: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    agent_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+
+    name: Mapped[str] = mapped_column(String(255))
+    address: Mapped[str] = mapped_column(String(500), default="")
+    phone: Mapped[str] = mapped_column(String(64), default="")
+    contact_name: Mapped[str] = mapped_column(String(128), default="")
+    inn: Mapped[str] = mapped_column(String(32), default="")
+    lat: Mapped[float | None] = mapped_column()
+    lon: Mapped[float | None] = mapped_column()
+    comment: Mapped[str] = mapped_column(Text, default="")
+
+    # new — в очереди на отправку в УТ; sent — отправлена в УТ (менеджер заводит
+    # клиента заявкой). Статус УТ-обработки (создан клиент / отклонена) ведётся
+    # на стороне УТ.
+    status: Mapped[str] = mapped_column(String(16), default="new", index=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+    agent: Mapped["User | None"] = relationship()
 
 
 class Device(Base):

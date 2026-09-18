@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import uz.smartsale.agent.ui.AgentViewModel
 import uz.smartsale.agent.ui.CustomerScreen
+import uz.smartsale.agent.ui.NewClientScreen
 import uz.smartsale.agent.ui.LoginScreen
 import uz.smartsale.agent.ui.OrderScreen
 import uz.smartsale.agent.ui.RouteScreen
@@ -36,7 +37,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Экран { Маршрут, Клиент, Заказ, Обмен, Документы, Задания }
+private enum class Экран { Маршрут, Клиент, Заказ, Обмен, Документы, Задания, НоваяЗаявка }
 
 @Composable
 private fun Root(vm: AgentViewModel = viewModel()) {
@@ -92,10 +93,16 @@ private fun Root(vm: AgentViewModel = viewModel()) {
         val модификатор = Modifier.padding(отступы)
         when (экран) {
             Экран.Маршрут -> androidx.compose.foundation.layout.Box(модификатор) {
-                RouteScreen(vm) { uuid ->
+                RouteScreen(vm,
+                    onNewClient = { экран = Экран.НоваяЗаявка }) { uuid ->
                     vm.openCustomer(uuid)
                     экран = Экран.Клиент
                 }
+            }
+            Экран.НоваяЗаявка -> androidx.compose.foundation.layout.Box(модификатор) {
+                NewClientScreen(vm,
+                    onDone = { экран = Экран.Маршрут },
+                    onBack = { экран = Экран.Маршрут })
             }
             Экран.Клиент -> androidx.compose.foundation.layout.Box(модификатор) {
                 CustomerScreen(vm,

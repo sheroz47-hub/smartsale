@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import uz.smartsale.agent.data.AgentCaps
 import uz.smartsale.agent.data.PromotionEngine
 import uz.smartsale.agent.data.Repository
 import uz.smartsale.agent.data.SyncResult
@@ -91,6 +92,8 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val server = repository.settings.server
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    val caps = repository.settings.caps
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AgentCaps())
 
     val pendingCount: StateFlow<Int> = db.documents().pendingOrderCount()
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
@@ -379,6 +382,20 @@ class AgentViewModel(app: Application) : AndroidViewModel(app) {
         _busy.value = false
         _syncResult.value = итог
         _message.value = итог.message
+    }
+
+    fun saveClientRequest(name: String, address: String, phone: String,
+                          contactName: String, inn: String, lat: String, lon: String,
+                          comment: String, onDone: () -> Unit) = viewModelScope.launch {
+        if (name.isBlank()) {
+            _message.value = "Укажите название точки"
+            return@launch
+        }
+        repository.saveClientRequest(name, address, phone, contactName, inn,
+            lat, lon, comment)
+        _message.value = "Заявка на клиента сохранена — уйдёт при обмене"
+        onDone()
+        sync()
     }
 
     fun saveOrder(paymentType: String, comment: String, deliveryDate: String,
