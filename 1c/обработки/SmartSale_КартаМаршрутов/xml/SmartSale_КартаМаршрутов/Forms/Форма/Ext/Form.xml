@@ -3,38 +3,197 @@
 	<Title>
 		<v8:item>
 			<v8:lang>ru</v8:lang>
-			<v8:content>SmartSale: карта клиентов</v8:content>
+			<v8:content>SmartSale: карта и маршрут</v8:content>
 		</v8:item>
 	</Title>
 	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
+	<Events>
+		<Event name="OnCreateAtServer">ПриСозданииНаСервере</Event>
+	</Events>
 	<ChildItems>
-		<InputField name="Агент" id="1">
-			<DataPath>Агент</DataPath>
-			<ContextMenu name="АгентКонтекстноеМеню" id="2"/>
-			<ExtendedTooltip name="АгентРасширеннаяПодсказка" id="3"/>
-		</InputField>
-		<Button name="ПоказатьНаКарте" id="4">
-			<Type>UsualButton</Type>
-			<CommandName>Form.Command.ПоказатьНаКарте</CommandName>
-			<DefaultButton>true</DefaultButton>
-			<ExtendedTooltip name="ПоказатьНаКартеРасширеннаяПодсказка" id="5"/>
-		</Button>
-		<InputField name="Лог" id="6">
+		<UsualGroup name="ГруппаШапка" id="1">
+			<Group>Horizontal</Group>
+			<ShowTitle>false</ShowTitle>
+			<Representation>None</Representation>
+			<ChildItems>
+				<InputField name="Агент" id="2">
+					<DataPath>Агент</DataPath>
+					<ContextMenu name="АгентКонтекстноеМеню" id="3"/>
+					<ExtendedTooltip name="АгентРасширеннаяПодсказка" id="4"/>
+				</InputField>
+				<InputField name="ДеньОбхода" id="5">
+					<DataPath>ДеньОбхода</DataPath>
+					<ListChoiceMode>true</ListChoiceMode>
+					<ContextMenu name="ДеньОбходаКонтекстноеМеню" id="6"/>
+					<ExtendedTooltip name="ДеньОбходаРасширеннаяПодсказка" id="7"/>
+				</InputField>
+				<Button name="Загрузить" id="8">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.Загрузить</CommandName>
+					<DefaultButton>true</DefaultButton>
+					<ExtendedTooltip name="ЗагрузитьРасширеннаяПодсказка" id="9"/>
+				</Button>
+			</ChildItems>
+			<ExtendedTooltip name="ГруппаШапкаРасширеннаяПодсказка" id="10"/>
+		</UsualGroup>
+		<UsualGroup name="ГруппаРабочая" id="11">
+			<Group>Horizontal</Group>
+			<ShowTitle>false</ShowTitle>
+			<Representation>None</Representation>
+			<ChildItems>
+				<UsualGroup name="ГруппаЛево" id="12">
+					<Group>Vertical</Group>
+					<ShowTitle>false</ShowTitle>
+					<Representation>None</Representation>
+					<ChildItems>
+						<Table name="Клиенты" id="13">
+							<DataPath>Клиенты</DataPath>
+							<Representation>List</Representation>
+							<AutoMaxHeight>false</AutoMaxHeight>
+							<Height>8</Height>
+							<ChangeRowSet>false</ChangeRowSet>
+							<ChangeRowOrder>false</ChangeRowOrder>
+							<CommandBarLocation>None</CommandBarLocation>
+							<Title>
+								<v8:item>
+									<v8:lang>ru</v8:lang>
+									<v8:content>Клиенты агента</v8:content>
+								</v8:item>
+							</Title>
+							<ChildItems>
+								<CheckBoxField name="КлиентыПометка" id="14">
+									<DataPath>Клиенты.Пометка</DataPath>
+									<CheckBoxType>Auto</CheckBoxType>
+									<ContextMenu name="КлиентыПометкаКонтекстноеМеню" id="15"/>
+									<ExtendedTooltip name="КлиентыПометкаРасширеннаяПодсказка" id="16"/>
+								</CheckBoxField>
+								<InputField name="КлиентыНаименование" id="17">
+									<DataPath>Клиенты.Наименование</DataPath>
+									<ReadOnly>true</ReadOnly>
+									<ContextMenu name="КлиентыНаименованиеКонтекстноеМеню" id="18"/>
+									<ExtendedTooltip name="КлиентыНаименованиеРасширеннаяПодсказка" id="19"/>
+								</InputField>
+								<CheckBoxField name="КлиентыВМаршруте" id="20">
+									<DataPath>Клиенты.ВМаршруте</DataPath>
+									<ReadOnly>true</ReadOnly>
+									<CheckBoxType>Auto</CheckBoxType>
+									<ContextMenu name="КлиентыВМаршрутеКонтекстноеМеню" id="21"/>
+									<ExtendedTooltip name="КлиентыВМаршрутеРасширеннаяПодсказка" id="22"/>
+								</CheckBoxField>
+							</ChildItems>
+							<ContextMenu name="КлиентыКонтекстноеМеню" id="23"/>
+							<ExtendedTooltip name="КлиентыРасширеннаяПодсказка" id="24"/>
+							<SearchStringAddition name="КлиентыСтрокаПоиска" id="25" type="SearchStringAddition"/>
+							<ViewStatusAddition name="КлиентыСостояниеПросмотра" id="26" type="ViewStatusAddition"/>
+							<SearchControlAddition name="КлиентыУправлениеПоиском" id="27" type="SearchControlAddition"/>
+						</Table>
+						<Button name="ДобавитьВМаршрут" id="28">
+							<Type>UsualButton</Type>
+							<CommandName>Form.Command.ДобавитьВМаршрут</CommandName>
+							<ExtendedTooltip name="ДобавитьВМаршрутРасширеннаяПодсказка" id="29"/>
+						</Button>
+						<Table name="Маршрут" id="30">
+							<DataPath>Маршрут</DataPath>
+							<Representation>List</Representation>
+							<AutoMaxHeight>false</AutoMaxHeight>
+							<Height>8</Height>
+							<ChangeRowSet>false</ChangeRowSet>
+							<ChangeRowOrder>false</ChangeRowOrder>
+							<CommandBarLocation>None</CommandBarLocation>
+							<Title>
+								<v8:item>
+									<v8:lang>ru</v8:lang>
+									<v8:content>Маршрут (порядок обхода)</v8:content>
+								</v8:item>
+							</Title>
+							<ChildItems>
+								<InputField name="МаршрутНомер" id="31">
+									<DataPath>Маршрут.Номер</DataPath>
+									<ReadOnly>true</ReadOnly>
+									<Width>4</Width>
+									<ContextMenu name="МаршрутНомерКонтекстноеМеню" id="32"/>
+									<ExtendedTooltip name="МаршрутНомерРасширеннаяПодсказка" id="33"/>
+								</InputField>
+								<InputField name="МаршрутНаименование" id="34">
+									<DataPath>Маршрут.Наименование</DataPath>
+									<ReadOnly>true</ReadOnly>
+									<ContextMenu name="МаршрутНаименованиеКонтекстноеМеню" id="35"/>
+									<ExtendedTooltip name="МаршрутНаименованиеРасширеннаяПодсказка" id="36"/>
+								</InputField>
+							</ChildItems>
+							<ContextMenu name="МаршрутКонтекстноеМеню" id="37"/>
+							<ExtendedTooltip name="МаршрутРасширеннаяПодсказка" id="38"/>
+							<SearchStringAddition name="МаршрутСтрокаПоиска" id="39" type="SearchStringAddition"/>
+							<ViewStatusAddition name="МаршрутСостояниеПросмотра" id="40" type="ViewStatusAddition"/>
+							<SearchControlAddition name="МаршрутУправлениеПоиском" id="41" type="SearchControlAddition"/>
+						</Table>
+						<UsualGroup name="ГруппаКнопкиМаршрута" id="42">
+							<Group>Horizontal</Group>
+							<ShowTitle>false</ShowTitle>
+							<Representation>None</Representation>
+							<ChildItems>
+								<Button name="ВверхПоМаршруту" id="43">
+									<Type>UsualButton</Type>
+									<CommandName>Form.Command.ВверхПоМаршруту</CommandName>
+									<ExtendedTooltip name="ВверхПоМаршрутуРасширеннаяПодсказка" id="44"/>
+								</Button>
+								<Button name="ВнизПоМаршруту" id="45">
+									<Type>UsualButton</Type>
+									<CommandName>Form.Command.ВнизПоМаршруту</CommandName>
+									<ExtendedTooltip name="ВнизПоМаршрутуРасширеннаяПодсказка" id="46"/>
+								</Button>
+								<Button name="УдалитьИзМаршрута" id="47">
+									<Type>UsualButton</Type>
+									<CommandName>Form.Command.УдалитьИзМаршрута</CommandName>
+									<ExtendedTooltip name="УдалитьИзМаршрутаРасширеннаяПодсказка" id="48"/>
+								</Button>
+							</ChildItems>
+							<ExtendedTooltip name="ГруппаКнопкиМаршрутаРасширеннаяПодсказка" id="49"/>
+						</UsualGroup>
+						<UsualGroup name="ГруппаНиз" id="50">
+							<Group>Horizontal</Group>
+							<ShowTitle>false</ShowTitle>
+							<Representation>None</Representation>
+							<ChildItems>
+								<Button name="ПоказатьМаршрут" id="51">
+									<Type>UsualButton</Type>
+									<CommandName>Form.Command.ПоказатьМаршрут</CommandName>
+									<ExtendedTooltip name="ПоказатьМаршрутРасширеннаяПодсказка" id="52"/>
+								</Button>
+								<Button name="СохранитьМаршрут" id="53">
+									<Type>UsualButton</Type>
+									<CommandName>Form.Command.СохранитьМаршрут</CommandName>
+									<ExtendedTooltip name="СохранитьМаршрутРасширеннаяПодсказка" id="54"/>
+								</Button>
+							</ChildItems>
+							<ExtendedTooltip name="ГруппаНизРасширеннаяПодсказка" id="55"/>
+						</UsualGroup>
+					</ChildItems>
+					<ExtendedTooltip name="ГруппаЛевоРасширеннаяПодсказка" id="56"/>
+				</UsualGroup>
+				<HTMLDocumentField name="ПолеБраузер" id="57">
+					<DataPath>ПолеБраузер</DataPath>
+					<TitleLocation>None</TitleLocation>
+					<AutoMaxHeight>false</AutoMaxHeight>
+					<Height>24</Height>
+					<HorizontalStretch>true</HorizontalStretch>
+					<VerticalStretch>true</VerticalStretch>
+					<ContextMenu name="ПолеБраузерКонтекстноеМеню" id="58"/>
+					<ExtendedTooltip name="ПолеБраузерРасширеннаяПодсказка" id="59"/>
+				</HTMLDocumentField>
+			</ChildItems>
+			<ExtendedTooltip name="ГруппаРабочаяРасширеннаяПодсказка" id="60"/>
+		</UsualGroup>
+		<InputField name="Лог" id="61">
 			<DataPath>Лог</DataPath>
 			<TitleLocation>None</TitleLocation>
 			<ReadOnly>true</ReadOnly>
-			<ContextMenu name="ЛогКонтекстноеМеню" id="7"/>
-			<ExtendedTooltip name="ЛогРасширеннаяПодсказка" id="8"/>
-		</InputField>
-		<HTMLDocumentField name="ПолеБраузер" id="9">
-			<DataPath>ПолеБраузер</DataPath>
-			<TitleLocation>None</TitleLocation>
 			<AutoMaxHeight>false</AutoMaxHeight>
-			<Height>22</Height>
-			<VerticalStretch>true</VerticalStretch>
-			<ContextMenu name="ПолеБраузерКонтекстноеМеню" id="10"/>
-			<ExtendedTooltip name="ПолеБраузерРасширеннаяПодсказка" id="11"/>
-		</HTMLDocumentField>
+			<Height>2</Height>
+			<MultiLine>true</MultiLine>
+			<ContextMenu name="ЛогКонтекстноеМеню" id="62"/>
+			<ExtendedTooltip name="ЛогРасширеннаяПодсказка" id="63"/>
+		</InputField>
 	</ChildItems>
 	<Attributes>
 		<Attribute name="Объект" id="1">
@@ -54,7 +213,23 @@
 				</v8:item>
 			</Title>
 		</Attribute>
-		<Attribute name="ПолеБраузер" id="3">
+		<Attribute name="ДеньОбхода" id="3">
+			<Type>
+				<v8:Type>xs:decimal</v8:Type>
+				<v8:NumberQualifiers>
+					<v8:Digits>1</v8:Digits>
+					<v8:FractionDigits>0</v8:FractionDigits>
+					<v8:AllowedSign>Nonnegative</v8:AllowedSign>
+				</v8:NumberQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>День недели</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
+		<Attribute name="ПолеБраузер" id="4">
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>
@@ -69,7 +244,7 @@
 				</v8:item>
 			</Title>
 		</Attribute>
-		<Attribute name="Лог" id="4">
+		<Attribute name="Лог" id="5">
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>
@@ -84,9 +259,236 @@
 				</v8:item>
 			</Title>
 		</Attribute>
+		<Attribute name="Клиенты" id="6">
+			<Type>
+				<v8:Type>v8:ValueTable</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Клиенты</v8:content>
+				</v8:item>
+			</Title>
+			<Columns>
+				<Column name="Пометка" id="7">
+					<Type>
+						<v8:Type>xs:boolean</v8:Type>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Отметить</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Клиент" id="8">
+					<Type>
+						<v8:Type>cfg:CatalogRef.Партнеры</v8:Type>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Клиент</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Наименование" id="9">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>150</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Клиент</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Широта" id="10">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>20</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Широта</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Долгота" id="11">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>20</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Долгота</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="ВМаршруте" id="12">
+					<Type>
+						<v8:Type>xs:boolean</v8:Type>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>В маршруте</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+			</Columns>
+		</Attribute>
+		<Attribute name="Маршрут" id="13">
+			<Type>
+				<v8:Type>v8:ValueTable</v8:Type>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Маршрут</v8:content>
+				</v8:item>
+			</Title>
+			<Columns>
+				<Column name="Клиент" id="14">
+					<Type>
+						<v8:Type>cfg:CatalogRef.Партнеры</v8:Type>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Клиент</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Наименование" id="15">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>150</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Клиент</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Широта" id="16">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>20</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Широта</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Долгота" id="17">
+					<Type>
+						<v8:Type>xs:string</v8:Type>
+						<v8:StringQualifiers>
+							<v8:Length>20</v8:Length>
+							<v8:AllowedLength>Variable</v8:AllowedLength>
+						</v8:StringQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Долгота</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+				<Column name="Номер" id="18">
+					<Type>
+						<v8:Type>xs:decimal</v8:Type>
+						<v8:NumberQualifiers>
+							<v8:Digits>3</v8:Digits>
+							<v8:FractionDigits>0</v8:FractionDigits>
+							<v8:AllowedSign>Nonnegative</v8:AllowedSign>
+						</v8:NumberQualifiers>
+					</Type>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>№</v8:content>
+						</v8:item>
+					</Title>
+				</Column>
+			</Columns>
+		</Attribute>
 	</Attributes>
 	<Commands>
-		<Command name="ПоказатьНаКарте" id="1">
+		<Command name="Загрузить" id="1">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Загрузить</v8:content>
+				</v8:item>
+			</Title>
+			<ToolTip>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Загрузить клиентов агента и его маршрут на выбранный день</v8:content>
+				</v8:item>
+			</ToolTip>
+			<Action>Загрузить</Action>
+		</Command>
+		<Command name="ДобавитьВМаршрут" id="2">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Добавить в маршрут ↓</v8:content>
+				</v8:item>
+			</Title>
+			<Action>ДобавитьВМаршрут</Action>
+		</Command>
+		<Command name="ВверхПоМаршруту" id="3">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Вверх</v8:content>
+				</v8:item>
+			</Title>
+			<Action>ВверхПоМаршруту</Action>
+		</Command>
+		<Command name="ВнизПоМаршруту" id="4">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Вниз</v8:content>
+				</v8:item>
+			</Title>
+			<Action>ВнизПоМаршруту</Action>
+		</Command>
+		<Command name="УдалитьИзМаршрута" id="5">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Удалить</v8:content>
+				</v8:item>
+			</Title>
+			<Action>УдалитьИзМаршрута</Action>
+		</Command>
+		<Command name="ПоказатьМаршрут" id="6">
 			<Title>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
@@ -96,10 +498,25 @@
 			<ToolTip>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>Показать клиентов агента на карте по их координатам</v8:content>
+					<v8:content>Перерисовать карту по текущему маршруту</v8:content>
 				</v8:item>
 			</ToolTip>
-			<Action>ПоказатьНаКарте</Action>
+			<Action>ПоказатьМаршрут</Action>
+		</Command>
+		<Command name="СохранитьМаршрут" id="7">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Сохранить маршрут</v8:content>
+				</v8:item>
+			</Title>
+			<ToolTip>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Присвоить маршрут агенту на выбранный день недели</v8:content>
+				</v8:item>
+			</ToolTip>
+			<Action>СохранитьМаршрут</Action>
 		</Command>
 	</Commands>
 </Form>
