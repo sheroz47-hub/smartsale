@@ -514,6 +514,29 @@ def push(пакет: ПакетОтправки, device: Device = Depends(curren
     return результат
 
 
+class ПакетТрека(BaseModel):
+    points: list[ТочкаТрека] = []
+
+
+@router.post("/track")
+def track(пакет: ПакетТрека, device: Device = Depends(current_device),
+          session: Session = Depends(get_session)):
+    """Прямой приём точек трека агента (fire-and-forget, без буфера на телефоне).
+
+    Лёгкий путь мимо /sync/push: телефон в рабочие часы шлёт положение сразу, а
+    при обрыве связи точку теряем (так решено — трек не критичен поштучно, важна
+    общая картина). Точки ложатся в буфер agent_track, дальше push_to_ut отдаёт
+    их в регистр УТ. Идемпотентность — по (агент, момент).
+    """
+    агент: User = device.user
+    принято = 0
+    for точка in пакет.points:
+        if _принять_точку_трека(session, агент, точка).get("status") == "accepted":
+            принято += 1
+    session.commit()
+    return {"status": "ok", "accepted": принято}
+
+
 _ВРЕМЯ_ОКНА = re.compile(r"^\d{1,2}:\d{2}$")
 
 

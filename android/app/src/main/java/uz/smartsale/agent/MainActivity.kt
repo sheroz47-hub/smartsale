@@ -1,9 +1,17 @@
 package uz.smartsale.agent
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import uz.smartsale.agent.service.TrackService
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -45,6 +53,57 @@ private fun Root(vm: AgentViewModel = viewModel()) {
     val сообщение by vm.message.collectAsState()
     val снэкбар = remember { SnackbarHostState() }
     var экран by remember { mutableStateOf(Экран.Маршрут) }
+    val контекст = LocalContext.current
+
+    // Фоновую локацию (для трека при заблокированном экране) на Android 10+
+    // просят ОТДЕЛЬНО и только после обычной — система иначе игнорирует запрос.
+    val фоноваяЛокация = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()) { }
+
+    val разрешенияТрека = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()) { итог ->
+        val естьЛокация = итог[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            итог[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (естьЛокация) {
+            TrackService.start(контекст)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                ContextCompat.checkSelfPermission(контекст,
+                    Manifest.permission.ACCESS_BACKGROUND_LOCATION) !=
+                    PackageManager.PERMISSION_GRANTED) {
+                фоноваяЛокация.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            }
+        }
+    }
+
+    // Трек включается по входу агента, гаснет по выходу. Разрешения спрашиваем
+    // здесь: без локации сервис просто не стартует, работу это не блокирует.
+    LaunchedEffect(токен) {
+        if (токен.isBlank()) {
+            TrackService.stop(контекст)
+        } else {
+            val нужные = buildList {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                    add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            val нехватает = нужные.any {
+                ContextCompat.checkSelfPermission(контекст, it) !=
+                    PackageManager.PERMISSION_GRANTED
+            }
+            if (нехватает) {
+                разрешенияТрека.launch(нужные.toTypedArray())
+            } else {
+                TrackService.start(контекст)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    ContextCompat.checkSelfPermission(контекст,
+                        Manifest.permission.ACCESS_BACKGROUND_LOCATION) !=
+                        PackageManager.PERMISSION_GRANTED) {
+                    фоноваяЛокация.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                }
+            }
+        }
+    }
 
     LaunchedEffect(сообщение) {
         if (сообщение.isNotBlank()) {

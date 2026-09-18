@@ -44,6 +44,8 @@ import uz.smartsale.agent.data.net.PaymentDto
 import uz.smartsale.agent.data.net.PushRequest
 import uz.smartsale.agent.data.net.SmartSaleApi
 import uz.smartsale.agent.data.net.TaskDoneDto
+import uz.smartsale.agent.data.net.TrackBatch
+import uz.smartsale.agent.data.net.TrackPointDto
 import uz.smartsale.agent.data.net.VisitDto
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -117,6 +119,20 @@ class Repository(private val context: Context) {
     }
 
     suspend fun logout() = settings.signOut()
+
+    /**
+     * Прямая отправка точек трека на сервер (fire-and-forget).
+     *
+     * Телефон трек НЕ хранит: не доехало — потеряли (так решено, важна общая
+     * картина, а не каждая точка). Ошибку глушим, чтобы фоновый сервис не падал
+     * на обрыве связи. Требует адреса сервера и токена — без входа не шлём.
+     */
+    suspend fun sendTrack(points: List<TrackPointDto>): Unit = withContext(Dispatchers.IO) {
+        if (points.isEmpty()) return@withContext
+        if (settings.tokenNow().isBlank()) return@withContext
+        runCatching { api().postTrack(TrackBatch(points)) }
+        Unit
+    }
 
     // --- обмен ---------------------------------------------------------------
 

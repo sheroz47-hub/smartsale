@@ -40,6 +40,11 @@ interface SmartSaleApi {
         @Body body: RequestBody,
     ): Response<ResponseBody>
 
+    /** Прямая отправка точек трека (fire-and-forget). Тело ответа не разбираем
+     *  — телефону важен лишь факт доставки; при сбое точку просто теряем. */
+    @POST("api/v1/track")
+    suspend fun postTrack(@Body request: TrackBatch): Response<ResponseBody>
+
     @GET("api/v1/ping")
     suspend fun ping(): Map<String, String>
 }

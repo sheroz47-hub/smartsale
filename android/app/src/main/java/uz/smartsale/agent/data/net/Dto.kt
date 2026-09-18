@@ -215,6 +215,17 @@ data class ClientRequestDto(
 )
 
 @Serializable
+data class TrackPointDto(
+    @SerialName("recorded_at") val recordedAt: String,
+    val lat: String,
+    val lon: String,
+    val accuracy: String = "",
+)
+
+@Serializable
+data class TrackBatch(val points: List<TrackPointDto>)
+
+@Serializable
 data class TaskDoneDto(
     val uuid: String,
     @SerialName("done_at") val doneAt: String? = null,
