@@ -33,7 +33,13 @@
 			<ContextMenu name="ОписаниеЗадачиКонтекстноеМеню" id="11"/>
 			<ExtendedTooltip name="ОписаниеЗадачиРасширеннаяПодсказка" id="12"/>
 		</InputField>
-		<UsualGroup name="ГруппаКоманды" id="13">
+		<InputField name="ДеньМаршрута" id="41">
+				<DataPath>ДеньМаршрута</DataPath>
+				<ListChoiceMode>true</ListChoiceMode>
+				<ContextMenu name="ДеньМаршрутаКонтекстноеМеню" id="42"/>
+				<ExtendedTooltip name="ДеньМаршрутаРасширеннаяПодсказка" id="43"/>
+			</InputField>
+			<UsualGroup name="ГруппаКоманды" id="13">
 			<Group>Horizontal</Group>
 			<ShowTitle>false</ShowTitle>
 			<Representation>None</Representation>
@@ -43,6 +49,11 @@
 					<CommandName>Form.Command.ЗаполнитьКлиентов</CommandName>
 					<DefaultButton>true</DefaultButton>
 					<ExtendedTooltip name="ЗаполнитьКлиентовРасширеннаяПодсказка" id="15"/>
+				</Button>
+				<Button name="ЗаполнитьПоМаршруту" id="44">
+					<Type>UsualButton</Type>
+					<CommandName>Form.Command.ЗаполнитьПоМаршруту</CommandName>
+					<ExtendedTooltip name="ЗаполнитьПоМаршрутуРасширеннаяПодсказка" id="45"/>
 				</Button>
 				<Button name="ОтметитьВсе" id="16">
 					<Type>UsualButton</Type>
@@ -250,6 +261,22 @@
 				</Column>
 			</Columns>
 		</Attribute>
+		<Attribute name="ДеньМаршрута" id="12">
+			<Type>
+				<v8:Type>xs:decimal</v8:Type>
+				<v8:NumberQualifiers>
+					<v8:Digits>1</v8:Digits>
+					<v8:FractionDigits>0</v8:FractionDigits>
+					<v8:AllowedSign>Nonnegative</v8:AllowedSign>
+				</v8:NumberQualifiers>
+			</Type>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>День маршрута</v8:content>
+				</v8:item>
+			</Title>
+		</Attribute>
 	</Attributes>
 	<Commands>
 		<Command name="ЗаполнитьКлиентов" id="1">
@@ -299,6 +326,21 @@
 				</v8:item>
 			</ToolTip>
 			<Action>ПоставитьЗадания</Action>
+		</Command>
+		<Command name="ЗаполнитьПоМаршруту" id="5">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Заполнить по маршруту</v8:content>
+				</v8:item>
+			</Title>
+			<ToolTip>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Заполнить клиентов из маршрута агента на выбранный день</v8:content>
+				</v8:item>
+			</ToolTip>
+			<Action>ЗаполнитьПоМаршруту</Action>
 		</Command>
 	</Commands>
 </Form>
